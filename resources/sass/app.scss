@@ -1,0 +1,28 @@
+// resources/sass/app.scss
+
+// 1) Import de la police Roboto depuis Google Fonts
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+// 2) Import de Bootstrap (sans "node_modules/")
+@import "bootstrap/scss/bootstrap";
+
+// 3) Surcharges globales
+html {
+  font-family: 'Roboto', sans-serif !important;
+}
+
+// Si besoin d'ajuster la taille de base :
+// html { font-size: calc(100% + 1px); }
+
+// 4) Styles additionnels
+body {
+  background-color: #fff;
+  color: #212529;
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 500;
+  line-height: 1.2;
+}
+
