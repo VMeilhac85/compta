@@ -86,6 +86,87 @@ jobs:
           openssl pkey -in "$key_path" -check -noout
           echo "IOS_APP_STORE_CONNECT_API_PRIVATE_KEY=$key_path" >> "$GITHUB_ENV"
 
+      - name: Installer temporairement la signature App Store
+        shell: bash
+        env:
+          IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+          IOS_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+          IOS_PROFILE_APP_BASE64: ${{ secrets.IOS_PROFILE_APP_BASE64 }}
+          IOS_PROFILE_SHARE_BASE64: ${{ secrets.IOS_PROFILE_SHARE_BASE64 }}
+          IOS_PROFILE_WATCH_BASE64: ${{ secrets.IOS_PROFILE_WATCH_BASE64 }}
+          IOS_PROFILE_WATCH_EXTENSION_BASE64: ${{ secrets.IOS_PROFILE_WATCH_EXTENSION_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          certificate_path="$RUNNER_TEMP/maison-pilote-distribution.p12"
+          decoded_profiles="$RUNNER_TEMP/maison-pilote-profiles"
+          installed_profiles="$HOME/Library/MobileDevice/Provisioning Profiles"
+          mkdir -p "$decoded_profiles" "$installed_profiles"
+
+          CERTIFICATE_PATH="$certificate_path" \
+          DECODED_PROFILES="$decoded_profiles" \
+          python3 - <<'PYTHON'
+          import base64
+          import os
+          from pathlib import Path
+
+          values = {
+              Path(os.environ["CERTIFICATE_PATH"]): "IOS_DISTRIBUTION_CERTIFICATE_P12_BASE64",
+              Path(os.environ["DECODED_PROFILES"]) / "app.mobileprovision": "IOS_PROFILE_APP_BASE64",
+              Path(os.environ["DECODED_PROFILES"]) / "share.mobileprovision": "IOS_PROFILE_SHARE_BASE64",
+              Path(os.environ["DECODED_PROFILES"]) / "watch.mobileprovision": "IOS_PROFILE_WATCH_BASE64",
+              Path(os.environ["DECODED_PROFILES"]) / "watch-extension.mobileprovision": "IOS_PROFILE_WATCH_EXTENSION_BASE64",
+          }
+          for path, variable in values.items():
+              encoded = os.environ.get(variable, "").strip()
+              if not encoded:
+                  raise SystemExit(f"Le secret {variable} est absent.")
+              path.write_bytes(base64.b64decode(encoded, validate=True))
+              path.chmod(0o600)
+          PYTHON
+
+          if [[ -z "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" ]]; then
+            echo "Le mot de passe du certificat de distribution est absent." >&2
+            exit 66
+          fi
+          keychain_path="$RUNNER_TEMP/maison-pilote-signing.keychain-db"
+          keychain_password="$(openssl rand -base64 36)"
+          security create-keychain -p "$keychain_password" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$keychain_password" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$IOS_DISTRIBUTION_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$keychain_path"
+          security set-key-partition-list \
+            -S apple-tool:,apple: \
+            -s -k "$keychain_password" "$keychain_path"
+          security list-keychains -d user -s "$keychain_path"
+          security default-keychain -d user -s "$keychain_path"
+          security find-identity -v -p codesigning "$keychain_path"
+
+          install_profile() {
+            local source_path="$1"
+            local environment_name="$2"
+            local decoded_plist="$source_path.plist"
+            local profile_uuid
+            security cms -D -i "$source_path" -o "$decoded_plist"
+            profile_uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$decoded_plist")"
+            if [[ ! "$profile_uuid" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+              echo "Un profil de provisioning est invalide." >&2
+              exit 65
+            fi
+            local installed_path="$installed_profiles/$profile_uuid.mobileprovision"
+            install -m 600 "$source_path" "$installed_path"
+            echo "$environment_name=$profile_uuid" >> "$GITHUB_ENV"
+            echo "${environment_name}_PATH=$installed_path" >> "$GITHUB_ENV"
+          }
+
+          install_profile "$decoded_profiles/app.mobileprovision" IOS_APP_PROVISIONING_PROFILE_SPECIFIER
+          install_profile "$decoded_profiles/share.mobileprovision" IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER
+          install_profile "$decoded_profiles/watch.mobileprovision" IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER
+          install_profile "$decoded_profiles/watch-extension.mobileprovision" IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER
+          echo "IOS_SIGNING_KEYCHAIN=$keychain_path" >> "$GITHUB_ENV"
+
       - name: Construire et envoyer la release
         shell: bash
         env:
@@ -117,7 +198,21 @@ jobs:
             echo "Le serveur Maison Pilote peut maintenant attendre le traitement Apple et activer TestFlight."
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Effacer la clé temporaire
+      - name: Effacer les éléments de signature temporaires
         if: always()
         shell: bash
-        run: rm -f -- "$RUNNER_TEMP/AuthKey_${IOS_APP_STORE_CONNECT_API_KEY_ID}.p8"
+        run: |
+          rm -f -- "$RUNNER_TEMP/AuthKey_${IOS_APP_STORE_CONNECT_API_KEY_ID}.p8"
+          rm -f -- "$RUNNER_TEMP/maison-pilote-distribution.p12"
+          for profile_path in \
+            "${IOS_APP_PROVISIONING_PROFILE_SPECIFIER_PATH:-}" \
+            "${IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER_PATH:-}" \
+            "${IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER_PATH:-}" \
+            "${IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER_PATH:-}"; do
+            if [[ -n "$profile_path" ]]; then
+              rm -f -- "$profile_path"
+            fi
+          done
+          if [[ -n "${IOS_SIGNING_KEYCHAIN:-}" && -f "$IOS_SIGNING_KEYCHAIN" ]]; then
+            security delete-keychain "$IOS_SIGNING_KEYCHAIN"
+          fi

@@ -311,6 +311,12 @@ set +a
 
 Le script archive, signe et demande à Xcode d’envoyer le build à App Store Connect. Il n’affiche ni ne copie la clé privée. Le script autonome s’arrête après l’upload : Apple doit ensuite finir le traitement et autoriser la bêta. L’orchestrateur Laravel décrit ci-dessous vérifie cet état avant d’activer la release côté Maison Pilote.
 
+Sur le runner GitHub, le certificat Apple Distribution et les quatre profils
+App Store sont injectés depuis les secrets chiffrés, installés dans un trousseau
+temporaire puis supprimés systématiquement. Chaque cible utilise explicitement
+son propre profil ; aucun appareil physique ni profil de développement n’est
+nécessaire.
+
 L’orchestrateur Laravel utilise `scripts/release.sh`. Sur macOS, il construit
 directement. Sur Linux, `scripts/release-github.sh` déclenche automatiquement le
 workflow GitHub hébergé sur `macos-15`, attend son résultat puis reprend le
