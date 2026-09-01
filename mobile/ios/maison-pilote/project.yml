@@ -181,7 +181,6 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         WKCompanionAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER)"
-        WKRunsIndependentlyOfCompanionApp: false
         WKWatchKitApp: true
     entitlements:
       path: WatchApp/Resources/MaisonPiloteWatch.entitlements
@@ -230,6 +229,7 @@ targets:
           NSExtensionAttributes:
             WKAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp"
           NSExtensionPointIdentifier: com.apple.watchkit
+        WKRunsIndependentlyOfCompanionApp: false
     entitlements:
       path: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
     configFiles:
