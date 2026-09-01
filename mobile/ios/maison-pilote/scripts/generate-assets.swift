@@ -1,7 +1,8 @@
 #!/usr/bin/env swift
 
-import AppKit
+import CoreGraphics
 import Foundation
+import ImageIO
 
 guard CommandLine.arguments.count == 4 else {
     fputs("Usage: generate-assets.swift <icone-source> <logo-source> <destination>\n", stderr)
@@ -13,7 +14,8 @@ let logoSourceURL = URL(fileURLWithPath: CommandLine.arguments[2])
 let catalogURL = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
 let fileManager = FileManager.default
 
-guard let sourceIcon = NSImage(contentsOf: iconSourceURL) else {
+guard let sourceIconProvider = CGImageSourceCreateWithURL(iconSourceURL as CFURL, nil),
+      let sourceIcon = CGImageSourceCreateImageAtIndex(sourceIconProvider, 0, nil) else {
     fputs("Icône Maison Pilote illisible.\n", stderr)
     exit(66)
 }
@@ -66,37 +68,38 @@ let variants = [
     IconVariant(filename: "watch-marketing-1024.png", pixels: 1024),
 ]
 
-func renderIcon(_ image: NSImage, pixels: Int, destination: URL) throws {
-    guard let representation = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: pixels,
-        pixelsHigh: pixels,
-        bitsPerSample: 8,
-        samplesPerPixel: 3,
-        hasAlpha: false,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
-        bytesPerRow: 0,
-        bitsPerPixel: 0
-    ) else { throw CocoaError(.fileWriteUnknown) }
-
-    NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: representation)
-    NSGraphicsContext.current?.imageInterpolation = .high
-    NSColor.white.setFill()
-    NSRect(x: 0, y: 0, width: pixels, height: pixels).fill()
-    image.draw(
-        in: NSRect(x: 0, y: 0, width: pixels, height: pixels),
-        from: .zero,
-        operation: .sourceOver,
-        fraction: 1
-    )
-    NSGraphicsContext.restoreGraphicsState()
-
-    guard let data = representation.representation(using: .png, properties: [:]) else {
+func renderIcon(_ image: CGImage, pixels: Int, destination: URL) throws {
+    let bitmapInfo = CGBitmapInfo(rawValue: CGImageAlphaInfo.noneSkipLast.rawValue)
+    guard let context = CGContext(
+        data: nil,
+        width: pixels,
+        height: pixels,
+        bitsPerComponent: 8,
+        bytesPerRow: pixels * 4,
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: bitmapInfo.rawValue
+    ) else {
         throw CocoaError(.fileWriteUnknown)
     }
-    try data.write(to: destination, options: .atomic)
+
+    context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: pixels, height: pixels))
+    context.interpolationQuality = .high
+    context.draw(image, in: CGRect(x: 0, y: 0, width: pixels, height: pixels))
+
+    guard let renderedImage = context.makeImage(),
+          let writer = CGImageDestinationCreateWithURL(
+              destination as CFURL,
+              "public.png" as CFString,
+              1,
+              nil
+          ) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    CGImageDestinationAddImage(writer, renderedImage, nil)
+    guard CGImageDestinationFinalize(writer) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
 }
 
 for variant in variants {
