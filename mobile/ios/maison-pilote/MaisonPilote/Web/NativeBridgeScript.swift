@@ -30,11 +30,16 @@ enum NativeBridgeScript {
     }
 
     static func secureSessionAssignment(_ session: SecureWebSession?) -> String {
-        guard let session,
-              let payload = try? JSONSerialization.data(withJSONObject: [
-                "token": session.token,
-                "expiresAt": session.expiresAt ?? NSNull(),
-              ]),
+        guard let session else {
+            return "delete window.__MAISON_PILOTE_IOS_SESSION__;"
+        }
+
+        let expiresAt: Any = session.expiresAt.map { $0 as Any } ?? NSNull()
+        let sessionObject: [String: Any] = [
+            "token": session.token,
+            "expiresAt": expiresAt,
+        ]
+        guard let payload = try? JSONSerialization.data(withJSONObject: sessionObject),
               let json = String(data: payload, encoding: .utf8) else {
             return "delete window.__MAISON_PILOTE_IOS_SESSION__;"
         }

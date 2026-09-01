@@ -22,7 +22,7 @@ struct AskMaisonPiloteIntent: AppIntent {
     var prompt: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Demander à Maison Pilote : \(.$prompt)")
+        Summary("Demander à Maison Pilote : \(\.$prompt)")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {

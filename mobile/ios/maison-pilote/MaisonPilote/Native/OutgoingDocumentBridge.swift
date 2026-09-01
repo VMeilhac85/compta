@@ -859,7 +859,7 @@ final class OutgoingDocumentBridge: NSObject {
     }
 }
 
-extension OutgoingDocumentBridge: QLPreviewControllerDataSource, QLPreviewControllerDelegate {
+extension OutgoingDocumentBridge: QLPreviewControllerDataSource {
     func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
         activePresentation == nil ? 0 : 1
     }
@@ -876,6 +876,9 @@ extension OutgoingDocumentBridge: QLPreviewControllerDataSource, QLPreviewContro
         return transfer.payloadURL as NSURL
     }
 
+}
+
+extension OutgoingDocumentBridge: @preconcurrency QLPreviewControllerDelegate {
     func previewControllerDidDismiss(_ controller: QLPreviewController) {
         guard let presentation = activePresentation,
               presentation.mode == "preview" else { return }
