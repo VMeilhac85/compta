@@ -38,6 +38,55 @@ targets:
         buildPhase: resources
     info:
       path: MaisonPilote/Resources/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: fr
+        CFBundleDisplayName: Maison Pilote
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: "$(PRODUCT_NAME)"
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+            CFBundleURLSchemes:
+              - "$(MAISON_PILOTE_CUSTOM_URL_SCHEME)"
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.business
+        MaisonPiloteAppGroupIdentifier: "$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)"
+        MaisonPiloteURLHost: "$(MAISON_PILOTE_URL_HOST)"
+        MaisonPiloteURLPath: "$(MAISON_PILOTE_URL_PATH)"
+        MaisonPiloteURLScheme: "$(MAISON_PILOTE_URL_SCHEME)"
+        MaisonPiloteCustomURLScheme: "$(MAISON_PILOTE_CUSTOM_URL_SCHEME)"
+        NSCameraUsageDescription: "Maison Pilote utilise l’appareil photo pour numériser et transmettre vos documents."
+        NSFaceIDUsageDescription: "Maison Pilote peut utiliser Face ID pour protéger l’accès à votre session."
+        NSMicrophoneUsageDescription: "Maison Pilote utilise le microphone uniquement lorsque vous dictez une demande."
+        NSPhotoLibraryUsageDescription: "Maison Pilote accède aux photos que vous choisissez pour les joindre à un dossier."
+        NSSiriUsageDescription: "Maison Pilote utilise Siri uniquement pour ouvrir l’application ou transmettre la demande que vous dictez."
+        NSPhotoLibraryAddUsageDescription: "Maison Pilote peut enregistrer un document dans votre photothèque à votre demande."
+        NSSpeechRecognitionUsageDescription: "Maison Pilote transforme votre dictée en texte avant de vous la faire transmettre à Codex."
+        UIApplicationSupportsIndirectInputEvents: true
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchLogo
+          UIImageRespectsSafeAreaInsets: true
+        UIRequiredDeviceCapabilities:
+          - arm64
+        UIBackgroundModes:
+          - remote-notification
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        WKAppBoundDomains:
+          - "$(MAISON_PILOTE_URL_HOST)"
     entitlements:
       path: MaisonPilote/Resources/MaisonPilote.entitlements
     configFiles:
@@ -74,6 +123,25 @@ targets:
         buildPhase: resources
     info:
       path: ShareExtension/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: fr
+        CFBundleDisplayName: Maison Pilote
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: "$(PRODUCT_NAME)"
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        MaisonPiloteAppGroupIdentifier: "$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)"
+        NSExtension:
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 20
+              NSExtensionActivationSupportsImageWithMaxCount: 20
+              NSExtensionActivationSupportsText: true
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).ShareViewController"
     entitlements:
       path: ShareExtension/MaisonPiloteShare.entitlements
     configFiles:
@@ -102,6 +170,19 @@ targets:
         buildPhase: resources
     info:
       path: WatchApp/Resources/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: fr
+        CFBundleDisplayName: Maison Pilote
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: "$(PRODUCT_NAME)"
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        WKCompanionAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER)"
+        WKRunsIndependentlyOfCompanionApp: false
+        WKWatchKitApp: true
     entitlements:
       path: WatchApp/Resources/MaisonPiloteWatch.entitlements
     configFiles:
@@ -135,6 +216,20 @@ targets:
         buildPhase: resources
     info:
       path: WatchExtension/Resources/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: fr
+        CFBundleDisplayName: Maison Pilote
+        CFBundleExecutable: "$(EXECUTABLE_NAME)"
+        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
+        CFBundleInfoDictionaryVersion: "6.0"
+        CFBundleName: "$(PRODUCT_NAME)"
+        CFBundlePackageType: XPC!
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionAttributes:
+            WKAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp"
+          NSExtensionPointIdentifier: com.apple.watchkit
     entitlements:
       path: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
     configFiles:
