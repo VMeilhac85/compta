@@ -113,7 +113,7 @@ Le shell injecte aussi avant le runtime sa version réellement installée :
 
 ```js
 window.__MAISON_PILOTE_IOS_APP__;
-// { versionCode: 111, versionName: '1.111' }
+// { versionCode: 112, versionName: '1.112' }
 ```
 
 Le runtime doit utiliser cette valeur locale pour décider si une mise à jour est
@@ -225,7 +225,7 @@ processus WebKit peut reprendre au `next_offset` renvoyé par un nouvel appel
 ## App Apple Watch
 
 Le projet embarque les cibles `MaisonPiloteWatch` et
-`MaisonPiloteWatchExtension`, version **1.111 (111)** comme l’app iPhone et
+`MaisonPiloteWatchExtension`, version **1.112 (112)** comme l’app iPhone et
 watchOS **9.4** minimum. L’écran SwiftUI reprend le parcours Wear OS : contrôle
 de disponibilité admin, dictée ou saisie système, transmission, suivi toutes les
 3 secondes, modèle et niveau de raisonnement, réponse et arrêt d’un traitement
@@ -319,10 +319,10 @@ nécessaire.
 
 L’orchestrateur Laravel utilise `scripts/release.sh`. Sur macOS, il construit
 directement. Sur Linux, `scripts/release-github.sh` déclenche automatiquement le
-workflow GitHub hébergé sur `macos-15`, attend son résultat puis reprend le
+workflow GitHub hébergé sur `macos-26`, attend son résultat puis reprend le
 contrôle côté serveur. La commande suivante calcule automatiquement une version
 au moins égale à
-**1.111 (111)**, construit et téléverse la release. Elle ne l’active qu’après
+**1.112 (112)**, construit et téléverse la release. Elle ne l’active qu’après
 vérification App Store Connect et disponibilité réelle dans le groupe public :
 
 ```bash
@@ -344,8 +344,8 @@ build sans le téléverser une deuxième fois, depuis macOS ou Linux :
 ```bash
 php artisan mobile:ios:release \
   --resume-provider-build-id=BUILD_ID \
-  --version-name=1.111 \
-  --build-number=111 \
+  --version-name=1.112 \
+  --build-number=112 \
   --channel=beta \
   --notes="Première version iOS de test"
 ```
@@ -372,9 +372,15 @@ auto-hébergé : seule une release TestFlight vérifiée peut être activée.
 
 Le serveur Laravel utilise en plus `MOBILE_IOS_ASC_APP_ID`,
 `MOBILE_IOS_ASC_BETA_GROUP_ID`, `MOBILE_IOS_ASC_BETA_LOCALE` (par défaut
-`fr-FR`), `MOBILE_IOS_ASC_KEY_ID`, `MOBILE_IOS_ASC_ISSUER_ID` et
-`MOBILE_IOS_ASC_PRIVATE_KEY_FILE`. La clé doit être une clé API d’équipe P-256
-autorisée à gérer l’application et TestFlight.
+`fr-FR`), les variables `MOBILE_IOS_ASC_BETA_*` et
+`MOBILE_IOS_ASC_REVIEW_*`, `MOBILE_IOS_ASC_KEY_ID`,
+`MOBILE_IOS_ASC_ISSUER_ID` et `MOBILE_IOS_ASC_PRIVATE_KEY_FILE`. Lorsque la
+connexion est nécessaire, activer `MOBILE_IOS_ASC_DEMO_ACCOUNT_REQUIRED` et
+stocker le mot de passe uniquement dans le fichier privé référencé par
+`MOBILE_IOS_ASC_DEMO_ACCOUNT_PASSWORD_FILE`. Laravel crée ou actualise la
+description localisée et les coordonnées de revue avant chaque soumission. La
+clé doit être une clé API d’équipe P-256 autorisée à gérer l’application et
+TestFlight.
 
 Sur le serveur Linux, la délégation utilise aussi
 `MOBILE_IOS_GITHUB_RELEASE_SCRIPT`, `MOBILE_IOS_GITHUB_CLI`,
