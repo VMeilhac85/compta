@@ -1,0 +1,123 @@
+name: iOS TestFlight
+
+run-name: TestFlight ${{ inputs.correlation_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      next_version_code:
+        description: Prochain numéro de build demandé par Maison Pilote
+        required: true
+        type: string
+      marketing_version:
+        description: Version lisible facultative, par exemple 1.111
+        required: false
+        default: ""
+        type: string
+      correlation_id:
+        description: Identifiant technique unique de la demande
+        required: true
+        type: string
+
+concurrency:
+  group: maison-pilote-ios-testflight
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  archive-and-upload:
+    name: Compiler, signer et transmettre à TestFlight
+    runs-on: macos-15
+    timeout-minutes: 55
+    env:
+      IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+      IOS_APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.IOS_ASC_KEY_ID }}
+      IOS_APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.IOS_ASC_ISSUER_ID }}
+      IOS_TESTFLIGHT_URL: ${{ secrets.IOS_TESTFLIGHT_URL }}
+      IOS_MINIMUM_OS_VERSION: "16.4"
+      IOS_WATCH_MINIMUM_OS_VERSION: "9.4"
+
+    steps:
+      - name: Récupérer les sources
+        uses: actions/checkout@v4
+
+      - name: Contrôler la demande
+        shell: bash
+        env:
+          NEXT_VERSION_CODE: ${{ inputs.next_version_code }}
+          MARKETING_VERSION: ${{ inputs.marketing_version }}
+          CORRELATION_ID: ${{ inputs.correlation_id }}
+        run: |
+          set -euo pipefail
+          [[ "$NEXT_VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          [[ -z "$MARKETING_VERSION" || "$MARKETING_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+          [[ "$CORRELATION_ID" =~ ^[A-Za-z0-9-]{1,64}$ ]]
+          [[ "$IOS_DEVELOPMENT_TEAM" =~ ^[A-Z0-9]{10}$ ]]
+          [[ "$IOS_APP_STORE_CONNECT_API_KEY_ID" =~ ^[A-Z0-9]{10}$ ]]
+          [[ "$IOS_APP_STORE_CONNECT_ISSUER_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          [[ "$IOS_TESTFLIGHT_URL" =~ ^https://testflight\.apple\.com/join/[A-Za-z0-9]+/?$ ]]
+
+      - name: Préparer XcodeGen
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null 2>&1; then
+            brew install xcodegen
+          fi
+          xcodegen --version
+
+      - name: Installer temporairement la clé App Store Connect
+        shell: bash
+        env:
+          IOS_ASC_PRIVATE_KEY: ${{ secrets.IOS_ASC_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$IOS_ASC_PRIVATE_KEY" ]]; then
+            echo "Le secret IOS_ASC_PRIVATE_KEY est absent." >&2
+            exit 66
+          fi
+          umask 077
+          key_path="$RUNNER_TEMP/AuthKey_${IOS_APP_STORE_CONNECT_API_KEY_ID}.p8"
+          printf '%s\n' "$IOS_ASC_PRIVATE_KEY" > "$key_path"
+          chmod 600 "$key_path"
+          openssl pkey -in "$key_path" -check -noout
+          echo "IOS_APP_STORE_CONNECT_API_PRIVATE_KEY=$key_path" >> "$GITHUB_ENV"
+
+      - name: Construire et envoyer la release
+        shell: bash
+        env:
+          MAISON_PILOTE_IOS_NEXT_VERSION_CODE: ${{ inputs.next_version_code }}
+          IOS_MARKETING_VERSION: ${{ inputs.marketing_version }}
+        run: |
+          set -euo pipefail
+          result_file="$RUNNER_TEMP/release-result.json"
+          export MAISON_PILOTE_IOS_RESULT_FILE="$result_file"
+          chmod +x mobile/ios/maison-pilote/scripts/*.sh
+          mobile/ios/maison-pilote/scripts/release.sh
+          python3 -m json.tool "$result_file" >/dev/null
+
+      - name: Conserver le manifeste de release
+        uses: actions/upload-artifact@v4
+        with:
+          name: maison-pilote-ios-release-${{ inputs.correlation_id }}
+          path: ${{ runner.temp }}/release-result.json
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Résumé
+        shell: bash
+        run: |
+          {
+            echo "## Maison Pilote iOS"
+            echo
+            echo "L’archive a été signée et transmise à App Store Connect."
+            echo "Le serveur Maison Pilote peut maintenant attendre le traitement Apple et activer TestFlight."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Effacer la clé temporaire
+        if: always()
+        shell: bash
+        run: rm -f -- "$RUNNER_TEMP/AuthKey_${IOS_APP_STORE_CONNECT_API_KEY_ID}.p8"

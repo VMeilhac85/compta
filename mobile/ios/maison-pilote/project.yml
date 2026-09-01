@@ -1,0 +1,167 @@
+name: MaisonPiloteIOS
+
+options:
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "16.4"
+    watchOS: "9.4"
+  developmentLanguage: fr
+  xcodeVersion: "16.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+settings:
+  base:
+    CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.4"
+    WATCHOS_DEPLOYMENT_TARGET: "9.4"
+
+targets:
+  MaisonPilote:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.4"
+    sources:
+      - path: MaisonPilote
+        excludes:
+          - Resources/Info.plist
+          - Resources/MaisonPilote.entitlements
+          - Resources/PrivacyInfo.xcprivacy
+      - path: Shared
+      - path: .generated/Assets.xcassets
+        buildPhase: resources
+      - path: MaisonPilote/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: MaisonPilote/Resources/Info.plist
+    entitlements:
+      path: MaisonPilote/Resources/MaisonPilote.entitlements
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER)"
+        PRODUCT_NAME: Maison Pilote
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: MaisonPilote/Resources/MaisonPilote.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: MaisonPiloteShare
+        embed: true
+      - target: MaisonPiloteWatch
+      - sdk: WatchConnectivity.framework
+
+  MaisonPiloteShare:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.4"
+    sources:
+      - path: ShareExtension
+        excludes:
+          - Info.plist
+          - MaisonPiloteShare.entitlements
+          - PrivacyInfo.xcprivacy
+      - path: Shared
+      - path: ShareExtension/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: ShareExtension/Info.plist
+    entitlements:
+      path: ShareExtension/MaisonPiloteShare.entitlements
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).share"
+        PRODUCT_NAME: Partager vers Maison Pilote
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/MaisonPiloteShare.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+
+  MaisonPiloteWatch:
+    type: application.watchapp2
+    platform: watchOS
+    deploymentTarget: "9.4"
+    sources:
+      - path: WatchApp
+        excludes:
+          - Resources/Info.plist
+          - Resources/MaisonPiloteWatch.entitlements
+      - path: .generated/Assets.xcassets
+        buildPhase: resources
+    info:
+      path: WatchApp/Resources/Info.plist
+    entitlements:
+      path: WatchApp/Resources/MaisonPiloteWatch.entitlements
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp"
+        PRODUCT_NAME: Maison Pilote
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_ENTITLEMENTS: WatchApp/Resources/MaisonPiloteWatch.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+    dependencies:
+      - target: MaisonPiloteWatchExtension
+
+  MaisonPiloteWatchExtension:
+    type: watchkit2-extension
+    platform: watchOS
+    deploymentTarget: "9.4"
+    sources:
+      - path: WatchExtension
+        excludes:
+          - Resources/Info.plist
+          - Resources/MaisonPiloteWatchExtension.entitlements
+          - Resources/PrivacyInfo.xcprivacy
+      - path: WatchExtension/Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: WatchExtension/Resources/Info.plist
+    entitlements:
+      path: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp.watchkitextension"
+        PRODUCT_NAME: Maison Pilote Watch
+        APPLICATION_EXTENSION_API_ONLY: YES
+        CODE_SIGN_ENTITLEMENTS: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        SKIP_INSTALL: YES
+        TARGETED_DEVICE_FAMILY: "4"
+    dependencies:
+      - sdk: WatchConnectivity.framework
+
+schemes:
+  MaisonPilote:
+    build:
+      targets:
+        MaisonPilote: all
+        MaisonPiloteShare: all
+        MaisonPiloteWatch: all
+        MaisonPiloteWatchExtension: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

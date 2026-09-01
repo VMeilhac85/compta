@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>fr</string>
+    <key>CFBundleDisplayName</key>
+    <string>Maison Pilote</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>$(MAISON_PILOTE_CUSTOM_URL_SCHEME)</string>
+            </array>
+        </dict>
+    </array>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.business</string>
+    <key>MaisonPiloteAppGroupIdentifier</key>
+    <string>$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)</string>
+    <key>MaisonPiloteURLHost</key>
+    <string>$(MAISON_PILOTE_URL_HOST)</string>
+    <key>MaisonPiloteURLPath</key>
+    <string>$(MAISON_PILOTE_URL_PATH)</string>
+    <key>MaisonPiloteURLScheme</key>
+    <string>$(MAISON_PILOTE_URL_SCHEME)</string>
+    <key>MaisonPiloteCustomURLScheme</key>
+    <string>$(MAISON_PILOTE_CUSTOM_URL_SCHEME)</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Maison Pilote utilise l’appareil photo pour numériser et transmettre vos documents.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Maison Pilote peut utiliser Face ID pour protéger l’accès à votre session.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Maison Pilote utilise le microphone uniquement lorsque vous dictez une demande.</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>Maison Pilote accède aux photos que vous choisissez pour les joindre à un dossier.</string>
+    <key>NSSiriUsageDescription</key>
+    <string>Maison Pilote utilise Siri uniquement pour ouvrir l’application ou transmettre la demande que vous dictez.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Maison Pilote peut enregistrer un document dans votre photothèque à votre demande.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Maison Pilote transforme votre dictée en texte avant de vous la faire transmettre à Codex.</string>
+    <key>UIApplicationSupportsIndirectInputEvents</key>
+    <true/>
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+        <key>UIImageName</key>
+        <string>LaunchLogo</string>
+        <key>UIImageRespectsSafeAreaInsets</key>
+        <true/>
+    </dict>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>remote-notification</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>UISupportedInterfaceOrientations~ipad</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationPortraitUpsideDown</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>WKAppBoundDomains</key>
+    <array>
+        <string>$(MAISON_PILOTE_URL_HOST)</string>
+    </array>
+</dict>
+</plist>

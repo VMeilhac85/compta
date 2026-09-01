@@ -1,0 +1,5 @@
+#include "Base.xcconfig"
+
+SWIFT_COMPILATION_MODE = wholemodule
+VALIDATE_PRODUCT = YES
+MAISON_PILOTE_APNS_ENVIRONMENT = production

@@ -1,0 +1,8 @@
+.build/
+.generated/
+*.xcarchive
+*.ipa
+DerivedData/
+Config/Local.xcconfig
+MaisonPiloteIOS.xcodeproj/
+xcuserdata/

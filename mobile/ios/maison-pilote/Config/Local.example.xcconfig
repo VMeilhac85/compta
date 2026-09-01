@@ -1,0 +1,8 @@
+// Copier ce fichier vers Local.xcconfig, sans jamais y placer de clé privée.
+MAISON_PILOTE_DEVELOPMENT_TEAM = ABCDE12345
+MAISON_PILOTE_BUNDLE_IDENTIFIER = expert.meilhac.maisonpilote
+MAISON_PILOTE_APP_GROUP_IDENTIFIER = group.expert.meilhac.maisonpilote
+MAISON_PILOTE_ASSOCIATED_DOMAIN = maisonpilote.meilhac.expert
+MAISON_PILOTE_WATCH_MINIMUM_OS_VERSION = 9.4
+MARKETING_VERSION = 1.111
+CURRENT_PROJECT_VERSION = 111

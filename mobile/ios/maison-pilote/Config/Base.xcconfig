@@ -1,0 +1,19 @@
+// Valeurs non secrètes. Les valeurs locales peuvent être remplacées dans
+// Local.xcconfig, volontairement ignoré par Git.
+MAISON_PILOTE_BUNDLE_IDENTIFIER = expert.meilhac.maisonpilote
+MAISON_PILOTE_APP_GROUP_IDENTIFIER = group.expert.meilhac.maisonpilote
+MAISON_PILOTE_ASSOCIATED_DOMAIN = maisonpilote.meilhac.expert
+MAISON_PILOTE_URL_SCHEME = https
+MAISON_PILOTE_URL_HOST = maisonpilote.meilhac.expert
+MAISON_PILOTE_URL_PATH = /api/application-ios/test?native=1
+MAISON_PILOTE_CUSTOM_URL_SCHEME = maisonpilote
+MAISON_PILOTE_DEVELOPMENT_TEAM =
+MAISON_PILOTE_WATCH_MINIMUM_OS_VERSION = 9.4
+
+MARKETING_VERSION = 1.111
+CURRENT_PROJECT_VERSION = 111
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = $(MAISON_PILOTE_DEVELOPMENT_TEAM)
+WATCHOS_DEPLOYMENT_TARGET = $(MAISON_PILOTE_WATCH_MINIMUM_OS_VERSION)
+
+#include? "Local.xcconfig"
