@@ -29,7 +29,7 @@ permissions:
 jobs:
   archive-and-upload:
     name: Compiler, signer et transmettre à TestFlight
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 55
     env:
       IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
@@ -64,6 +64,12 @@ jobs:
         run: |
           set -euo pipefail
           xcodebuild -version
+          xcode_version="$(xcodebuild -version | awk 'NR == 1 { print $2 }')"
+          xcode_major="${xcode_version%%.*}"
+          if [[ ! "$xcode_major" =~ ^[0-9]+$ ]] || (( xcode_major < 26 )); then
+            echo "Xcode 26 ou une version ultérieure est requis par App Store Connect." >&2
+            exit 65
+          fi
           if ! command -v xcodegen >/dev/null 2>&1; then
             brew install xcodegen
           fi
