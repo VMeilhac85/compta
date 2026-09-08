@@ -80,7 +80,7 @@ for product in (root/'DerivedData/Build/Products/Debug-iphonesimulator').glob('*
         assert info['CFBundleShortVersionString']==os.environ['IOS_MARKETING_VERSION']
         print('Configuration native du simulateur :',json.dumps({key:info.get(key) for key in ['CFBundleVersion','MaisonPiloteURLHost','MaisonPiloteURLPath','WKAppBoundDomains']}),flush=True)
 records=[]
-for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type('iPad Pro 13-inch (M4)'))]:
+for family,dtype in [('iphone',find_type('iPhone 16 Pro Max'))]:
     device=sim('create','Maison Pilote App Store '+family,dtype['identifier'],runtime)
     with (root/'devices.txt').open('a') as stream:stream.write(device+'\n')
     watch=None
@@ -153,6 +153,22 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         time.sleep(70)
         sim('io',watch,'screenshot','--type=png',str(out/'watch-01-assistant.png'))
         records.append({'filename':'watch-01-assistant.png','device':watch_type['name'],'origin':'native-watchos-simulator'})
+        import shutil
+        diagnostics=out.parent/'relay-diagnostics'
+        diagnostics.mkdir(exist_ok=True)
+        for family_id, diagnostic_device in [('iphone',device),('watch',watch)]:
+            data_root=Path.home()/'Library/Developer/CoreSimulator/Devices'/diagnostic_device/'data/Containers'
+            logs=list(data_root.rglob('watch-relay-diagnostic.log'))
+            print('Diagnostic relay logs:',family_id,len(logs),flush=True)
+            for index, log in enumerate(logs):
+                text=log.read_text()
+                print(family_id,text,flush=True)
+                (diagnostics/f'{family_id}-{index}.log').write_text(text)
+            try:
+                report=sim('spawn',diagnostic_device,'log','show','--last','8m','--style','compact','--predicate','subsystem CONTAINS "watchconnectivity"')
+                (diagnostics/f'{family_id}-watchconnectivity.log').write_text(report)
+            except subprocess.CalledProcessError:
+                pass
         sim('shutdown',watch)
     sim('shutdown',device)
 (out.parent/'capture-manifest.json').write_text(json.dumps({

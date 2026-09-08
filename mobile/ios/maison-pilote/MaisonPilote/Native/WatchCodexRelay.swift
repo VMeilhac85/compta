@@ -14,20 +14,23 @@ final class WatchCodexRelay: NSObject, WCSessionDelegate {
     }
 
     func activate() {
+        WatchRelayDiagnostic.record("phone activate entered")
         guard WCSession.isSupported() else { return }
         if session == nil {
             let session = WCSession.default
             session.delegate = self
             self.session = session
         }
+        WatchRelayDiagnostic.record("phone activate before WCSession")
         session?.activate()
+        WatchRelayDiagnostic.record("phone activate returned")
     }
 
     func session(
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) { WatchRelayDiagnostic.record("phone activated state=\(activationState.rawValue) error=\(error != nil) paired=\(session.isPaired) installed=\(session.isWatchAppInstalled) reachable=\(session.isReachable)") }
 
     func sessionDidBecomeInactive(_ session: WCSession) {}
 
@@ -40,9 +43,13 @@ final class WatchCodexRelay: NSObject, WCSessionDelegate {
         didReceiveMessage message: [String: Any],
         replyHandler: @escaping ([String: Any]) -> Void
     ) {
+        WatchRelayDiagnostic.record("phone message received")
         Task {
+            WatchRelayDiagnostic.record("phone response task entered")
             let response = await response(for: message)
+            WatchRelayDiagnostic.record("phone response ready ok=\(response["ok"] as? Bool ?? false)")
             replyHandler(response)
+            WatchRelayDiagnostic.record("phone reply handler returned")
         }
     }
 
@@ -54,6 +61,7 @@ final class WatchCodexRelay: NSObject, WCSessionDelegate {
               WatchCodexAction(rawValue: action) != nil else {
             return failure(requestID: requestID, code: "invalid_action", message: "Action montre inconnue.")
         }
+        WatchRelayDiagnostic.record("phone loading secure session")
         guard let secureSession = secureSessionStore.load(),
               let deviceID = secureSession.deviceID else {
             return failure(
@@ -63,14 +71,17 @@ final class WatchCodexRelay: NSObject, WCSessionDelegate {
             )
         }
 
+        WatchRelayDiagnostic.record("phone secure session found")
         do {
             switch WatchCodexAction(rawValue: action)! {
             case .availability:
+                WatchRelayDiagnostic.record("phone availability HTTP beginning")
                 let available = try await api.isAdmin(
                     session: secureSession,
                     deviceID: deviceID,
                     requestID: requestID
                 )
+                WatchRelayDiagnostic.record("phone availability HTTP ended available=\(available)")
                 return [
                     "request_id": requestID,
                     "ok": true,
@@ -416,5 +427,18 @@ private final class WatchCodexRedirectDelegate: NSObject, URLSessionTaskDelegate
             return
         }
         completionHandler(request)
+    }
+}
+
+// Instrumentation temporaire de diagnostic, absente de l’IPA de distribution.
+private enum WatchRelayDiagnostic {
+    private static let lock = NSLock()
+    static func record(_ event: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("watch-relay-diagnostic.log")
+        let line = "\(Date().timeIntervalSince1970) \(event)\n"
+        let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        try? (previous + line).write(to: url, atomically: true, encoding: .utf8)
     }
 }

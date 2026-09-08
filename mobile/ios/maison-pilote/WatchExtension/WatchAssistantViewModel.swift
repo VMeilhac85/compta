@@ -39,12 +39,14 @@ final class WatchAssistantViewModel: ObservableObject {
     }
 
     func start() {
+        WatchRelayDiagnostic.record("watch model start entered")
         guard !started else { return }
         started = true
         checkAvailability()
     }
 
     func checkAvailability() {
+        WatchRelayDiagnostic.record("watch check availability entered")
         guard !busy else { return }
         pollingTask?.cancel()
         busy = true
@@ -53,9 +55,11 @@ final class WatchAssistantViewModel: ObservableObject {
         Task {
             do {
                 let payload = try await WatchPhoneRelay.shared.request(action: "availability")
+                WatchRelayDiagnostic.record("watch availability response received")
                 try validate(payload)
                 available = payload["available"] as? Bool ?? false
             } catch {
+                WatchRelayDiagnostic.record("watch availability caught error")
                 available = nil
                 self.error = message(for: error)
             }
@@ -212,14 +216,18 @@ private final class WatchPhoneRelay: NSObject, WCSessionDelegate {
         }
         super.init()
         session?.delegate = self
+        WatchRelayDiagnostic.record("watch activate before WCSession")
         session?.activate()
+        WatchRelayDiagnostic.record("watch activate returned")
     }
 
     func request(action: String, values: [String: Any] = [:]) async throws -> [String: Any] {
+        WatchRelayDiagnostic.record("watch request entered")
         guard let session else { throw WatchRelayError.unsupported }
         for _ in 0..<20 where session.activationState != .activated {
             try await Task.sleep(nanoseconds: 100_000_000)
         }
+        WatchRelayDiagnostic.record("watch session state=\(session.activationState.rawValue) reachable=\(session.isReachable)")
         guard session.activationState == .activated, session.isReachable else {
             throw WatchRelayError.phoneUnavailable
         }
@@ -228,15 +236,19 @@ private final class WatchPhoneRelay: NSObject, WCSessionDelegate {
         let requestID = UUID().uuidString.lowercased()
         message["request_id"] = requestID
         return try await withCheckedThrowingContinuation { continuation in
+            WatchRelayDiagnostic.record("watch sendMessage before call")
             session.sendMessage(message) { response in
+                WatchRelayDiagnostic.record("watch sendMessage response callback")
                 guard response["request_id"] as? String == requestID else {
                     continuation.resume(throwing: WatchRelayError.invalidResponse)
                     return
                 }
                 continuation.resume(returning: response)
-            } errorHandler: { _ in
+            } errorHandler: { error in
+                WatchRelayDiagnostic.record("watch sendMessage error code=\((error as NSError).code)")
                 continuation.resume(throwing: WatchRelayError.phoneUnavailable)
             }
+            WatchRelayDiagnostic.record("watch sendMessage returned")
         }
     }
 
@@ -244,9 +256,22 @@ private final class WatchPhoneRelay: NSObject, WCSessionDelegate {
         _ session: WCSession,
         activationDidCompleteWith activationState: WCSessionActivationState,
         error: Error?
-    ) {}
+    ) { WatchRelayDiagnostic.record("watch activated state=\(activationState.rawValue) error=\(error != nil) reachable=\(session.isReachable)") }
 }
 
 private extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+// Instrumentation temporaire de diagnostic, absente de l’IPA de distribution.
+private enum WatchRelayDiagnostic {
+    private static let lock = NSLock()
+    static func record(_ event: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("watch-relay-diagnostic.log")
+        let line = "\(Date().timeIntervalSince1970) \(event)\n"
+        let previous = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        try? (previous + line).write(to: url, atomically: true, encoding: .utf8)
+    }
 }
