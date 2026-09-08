@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "app_id": "6807432374",
+  "bundle_id": "expert.meilhac.maisonpilote",
+  "first_public_release": true,
+  "version_name": "1.131",
+  "build_number": 131,
+  "locale": "fr-FR",
+  "name": "Maison Pilote",
+  "subtitle": "Vos dossiers au quotidien",
+  "description": "Maison Pilote accompagne les professionnels, leurs clients et leurs salariés dans le suivi quotidien de leurs dossiers.\n\nRetrouvez les informations et les services auxquels votre organisation vous donne accès, depuis votre iPhone ou votre iPad.\n\nDOCUMENTS ET JUSTIFICATIFS\nConsultez vos documents, photographiez un justificatif et transmettez les fichiers utiles à votre dossier. Partagez aussi un document vers Maison Pilote depuis une autre application.\n\nESPACE SALARIÉ\nSelon les droits accordés par votre organisation, retrouvez vos bulletins, documents, congés et absences. Préparez vos notes de frais et vos déplacements professionnels.\n\nSUIVI ET ÉCHANGES\nConsultez vos tâches et notifications, échangez avec les personnes habilitées et retrouvez le support Maison Pilote. Les informations disponibles dépendent de votre profil et des modules activés.\n\nFONCTIONS NATIVES\nUtilisez la caméra, la dictée et les notifications avec votre autorisation. Protégez votre session avec Face ID ou Touch ID sur les appareils compatibles.\n\nL’application nécessite un compte Maison Pilote existant et une autorisation d’accès mobile. Les fonctions dépendent des droits associés au compte. Une connexion Internet est nécessaire pour synchroniser les données et utiliser les services en ligne.\n\nL’application Apple Watch accompagne l’iPhone pour les fonctions d’assistance réservées aux administrateurs autorisés.\n\nPolitique de confidentialité : https://maisonpilote.fr/confidentialite\nAssistance et contact : https://maisonpilote.fr/mentions-legales",
+  "promotional_text": "Vos documents, justificatifs et services professionnels réunis dans Maison Pilote, selon les droits de votre organisation.",
+  "keywords": "documents,justificatifs,entreprise,salariés,congés,frais,gestion,dossiers,bulletins",
+  "support_url": "https://maisonpilote.fr/mentions-legales",
+  "marketing_url": "https://maisonpilote.fr",
+  "privacy_policy_url": "https://maisonpilote.fr/confidentialite",
+  "copyright": "2026 M4 INFO",
+  "primary_category": "BUSINESS",
+  "secondary_category": "PRODUCTIVITY",
+  "price": {
+    "customer_price": "0.00",
+    "currency": "EUR",
+    "base_territory": "FRA"
+  },
+  "territories": [
+    "FRA"
+  ],
+  "territory_selection": "proposition en attente de la préférence du propriétaire",
+  "release_type": "AFTER_APPROVAL",
+  "apple_upload_authorized": true,
+  "apple_submission_authorized": false,
+  "content_rights": "Pas de catalogue de contenus tiers. Documents privés déposés par les utilisateurs habilités.",
+  "encryption": {
+    "uses_non_exempt_encryption": false,
+    "basis": "HTTPS, Trousseau et mécanismes Apple ; aucun algorithme cryptographique propriétaire ajouté."
+  },
+  "review_notes": "Maison Pilote est le compagnon mobile d’une plateforme professionnelle existante. La connexion utilise le compte de démonstration fourni séparément dans les informations de revue. Aucun achat et aucune création de compte ne sont proposés dans l’application.\n\nAprès connexion, sélectionner le dossier « Démo GRH » si un dossier est demandé. Le compte de démonstration donne accès uniquement à des données fictives. Depuis l’accueil, ouvrir Documents pour consulter les pièces de démonstration et découvrir les fonctions de transmission. Les écrans et actions visibles dépendent des habilitations du compte.\n\nLa caméra, les photos, le microphone, la reconnaissance vocale et les notifications nécessitent l’autorisation correspondante. L’extension de partage accepte les documents depuis la feuille de partage iOS. Face ID ou Touch ID sécurise une session déjà authentifiée sur un appareil compatible.\n\nL’extension Apple Watch relaie les fonctions d’assistance de l’iPhone pour les administrateurs autorisés. Ces fonctions ne sont pas accordées au compte de démonstration standard. L’application reste utilisable sans Apple Watch.\n\nAssistance : https://maisonpilote.fr/mentions-legales\nConfidentialité : https://maisonpilote.fr/confidentialite",
+  "review_credentials_source": "Configuration serveur mobile.ios.app_store_connect ; secret conservé hors du dépôt, jamais dans ce fichier.",
+  "authorized_distribution": "testflight_only",
+  "beta_review_authorized": true
+}

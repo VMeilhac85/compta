@@ -1,0 +1,49 @@
+# Validation de la première publication Maison Pilote
+
+Version proposée : **1.131, build 131**. Le téléchargement est proposé gratuit,
+en France, avec une fiche française et un compte Maison Pilote existant.
+
+Le propriétaire a autorisé l’envoi TestFlight et confirmé l’inclusion de la
+Watch le 8 septembre 2026. Cet envoi est effectué ; voir le
+[statut TestFlight](statut-testflight.md). L’autorisation de soumission ou de
+publication App Store publique reste à obtenir.
+
+**Préalable non résolu : Apple Watch.** L’archive contient l’application Watch,
+mais sa liaison et une capture représentative n’ont pas pu être validées.
+Le dossier n’est donc pas encore au stade du seul accord final. Résoudre ce
+point, ou préparer une nouvelle archive iPhone/iPad si le propriétaire choisit
+ce périmètre, avant toute demande de transmission. Voir le
+[diagnostic et les preuves](blocage-apple-watch.md).
+
+## Contenu de la décision
+
+- Approuver la [fiche française](metadata.fr-FR.json), les captures natives et
+  les notes destinées à l’équipe de revue Apple.
+- Confirmer le tarif gratuit et le territoire France, ou indiquer les changements.
+- Approuver les [déclarations de confidentialité et de classification](confidentialite-et-revue.md).
+- Dans [App Store Connect](https://appstoreconnect.apple.com/apps/6807432374),
+  confirmer les informations de confidentialité, le statut professionnel DSA
+  et les éventuels contrats signalés par Apple. Leur état ne peut pas être
+  certifié avec les accès API disponibles.
+- Préciser la portée de l’autorisation : essai TestFlight uniquement, soumission
+  App Store avec sortie manuelle, ou soumission avec publication après approbation
+  Apple.
+
+Les trois portées sont distinctes. Seule la portée TestFlight a été autorisée.
+La décision d’accepter l’application et le délai de revue appartiennent à Apple.
+
+## Exécution après autorisation
+
+Le binaire à transmettre est l’IPA déjà signée et contrôlée du dossier privé
+`storage/app/private/mobile/app-store/v1-1.131-131`. Son empreinte exacte figure
+dans `preparation-result.json`. Une nouvelle compilation ne doit pas remplacer
+silencieusement ce binaire approuvé.
+
+Après l’envoi autorisé, attendre le traitement Apple, vérifier son résultat,
+renseigner la fiche et ses médias, associer le build 131 et le compte de revue,
+puis soumettre uniquement selon la portée demandée. Une erreur de validation
+Apple ou une demande du contrôleur doit être traitée et rapportée avant de
+considérer la publication terminée.
+
+La [bêta actuelle et les étapes d’essai sur iPhone](tester-sur-iphone.md) sont
+indépendantes de cette nouvelle transmission.
