@@ -10,13 +10,11 @@ PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 : "${IOS_PREPARATION_DIRECTORY:?Répertoire de sortie absolu requis}"
 : "${IOS_APP_PROVISIONING_PROFILE_SPECIFIER:?Profil application requis}"
 : "${IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER:?Profil partage requis}"
-: "${IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER:?Profil Watch requis}"
-: "${IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER:?Profil extension Watch requis}"
 [[ "$IOS_PREPARATION_DIRECTORY" == /* && "$IOS_DEVELOPMENT_TEAM" =~ ^[A-Z0-9]{10}$ ]]
 IOS_MARKETING_VERSION="${IOS_MARKETING_VERSION:-$(awk '/^MARKETING_VERSION = / { print $3 }' "$PROJECT_DIR/Config/Base.xcconfig")}"
 IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(awk '/^CURRENT_PROJECT_VERSION = / { print $3 }' "$PROJECT_DIR/Config/Base.xcconfig")}"
 [[ "$IOS_MARKETING_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ && "$IOS_BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]
-for profile in "$IOS_APP_PROVISIONING_PROFILE_SPECIFIER" "$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER" "$IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER" "$IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER"; do
+for profile in "$IOS_APP_PROVISIONING_PROFILE_SPECIFIER" "$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER"; do
     [[ "$profile" =~ ^[0-9a-fA-F-]{36}$ ]]
 done
 export IOS_MARKETING_VERSION IOS_BUILD_NUMBER
@@ -34,8 +32,6 @@ xcodebuild archive \
     "MARKETING_VERSION=$IOS_MARKETING_VERSION" "CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
     "MAISON_PILOTE_APP_PROVISIONING_PROFILE_SPECIFIER=$IOS_APP_PROVISIONING_PROFILE_SPECIFIER" \
     "MAISON_PILOTE_SHARE_PROVISIONING_PROFILE_SPECIFIER=$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER" \
-    "MAISON_PILOTE_WATCH_PROVISIONING_PROFILE_SPECIFIER=$IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER" \
-    "MAISON_PILOTE_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER=$IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER" \
     CODE_SIGN_STYLE=Manual 'CODE_SIGN_IDENTITY=Apple Distribution'
 
 python3 - <<'PYTHON'
@@ -43,8 +39,8 @@ import os, plistlib
 from pathlib import Path
 bundle = 'expert.meilhac.maisonpilote'
 profiles = dict(zip(
-    [bundle, bundle+'.share', bundle+'.watchkitapp', bundle+'.watchkitapp.watchkitextension'],
-    [os.environ['IOS_'+key+'_PROVISIONING_PROFILE_SPECIFIER'] for key in ['APP', 'SHARE', 'WATCH', 'WATCH_EXTENSION']]
+    [bundle, bundle+'.share'],
+    [os.environ['IOS_'+key+'_PROVISIONING_PROFILE_SPECIFIER'] for key in ['APP', 'SHARE']]
 ))
 options = {
     'destination': 'export', 'method': 'app-store-connect',
@@ -71,7 +67,8 @@ with tempfile.TemporaryDirectory() as temporary:
         archive.extractall(temporary)
     application = next((Path(temporary)/'Payload').glob('*.app'))
     bundles = [application] + sorted(application.rglob('*.app')) + sorted(application.rglob('*.appex'))
-    assert len(bundles) == 4, 'Les quatre cibles iPhone, partage et Watch sont requises.'
+    assert len(bundles) == 2, 'Seules les cibles iPhone/iPad et partage sont attendues.'
+    assert not (application/'Watch').exists(), 'Apple Watch est exclue de cette publication.'
     for bundle in bundles:
         subprocess.run(['codesign', '--verify', '--deep', '--strict', str(bundle)], check=True)
         info = plistlib.loads((bundle/'Info.plist').read_bytes())
