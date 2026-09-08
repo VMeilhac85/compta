@@ -5,5 +5,4 @@ MAISON_PILOTE_APP_GROUP_IDENTIFIER = group.expert.meilhac.maisonpilote
 MAISON_PILOTE_ASSOCIATED_DOMAIN = maisonpilote.meilhac.expert
 MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN = maisonpilote.fr
 MAISON_PILOTE_WATCH_MINIMUM_OS_VERSION = 9.4
-MARKETING_VERSION = 1.124
-CURRENT_PROJECT_VERSION = 124
+// La version et le numéro de build sont hérités de Base.xcconfig.

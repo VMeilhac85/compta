@@ -4,6 +4,9 @@ set -euo pipefail
 umask 077
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+IOS_MARKETING_VERSION="$(awk '/^MARKETING_VERSION = / { print $3 }' "$PROJECT_DIR/Config/Base.xcconfig")"
+IOS_BUILD_NUMBER="$(awk '/^CURRENT_PROJECT_VERSION = / { print $3 }' "$PROJECT_DIR/Config/Base.xcconfig")"
+export IOS_MARKETING_VERSION IOS_BUILD_NUMBER
 : "${IOS_PREPARATION_DIRECTORY:?Répertoire de préparation requis}"
 : "${IOS_SCREENSHOT_LOGIN:?Compte de démonstration requis}"
 : "${IOS_SCREENSHOT_PASSWORD:?Secret de démonstration requis}"
@@ -48,10 +51,12 @@ PYTHON
 (cd "$PROJECT_DIR" && xcodegen generate --spec capture-project.json)
 xcodebuild build-for-testing -project "$PROJECT_DIR/MaisonPiloteIOS.xcodeproj" \
     -scheme MaisonPiloteCapture -configuration Debug -destination 'generic/platform=iOS Simulator' \
-    -derivedDataPath "$CAPTURE_TEMP/DerivedData" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
+    -derivedDataPath "$CAPTURE_TEMP/DerivedData" \
+    "MARKETING_VERSION=$IOS_MARKETING_VERSION" "CURRENT_PROJECT_VERSION=$IOS_BUILD_NUMBER" \
+    CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
 
 python3 - <<'PYTHON'
-import json, os, plistlib, subprocess, time
+import datetime, json, os, plistlib, subprocess, time
 from pathlib import Path
 root=Path(os.environ['CAPTURE_TEMP'])
 out=Path(os.environ['IOS_PREPARATION_DIRECTORY'])/'screenshots/fr-FR'
@@ -71,6 +76,8 @@ original_run=next((root/'DerivedData/Build/Products').glob('*.xctestrun'))
 for product in (root/'DerivedData/Build/Products/Debug-iphonesimulator').glob('*.app'):
     info=plistlib.loads((product/'Info.plist').read_bytes())
     if info.get('CFBundleIdentifier')=='expert.meilhac.maisonpilote':
+        assert info['CFBundleVersion']==os.environ['IOS_BUILD_NUMBER']
+        assert info['CFBundleShortVersionString']==os.environ['IOS_MARKETING_VERSION']
         print('Configuration native du simulateur :',json.dumps({key:info.get(key) for key in ['CFBundleVersion','MaisonPiloteURLHost','MaisonPiloteURLPath','WKAppBoundDomains']}),flush=True)
 records=[]
 for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type('iPad Pro 13-inch (M4)'))]:
@@ -133,5 +140,11 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         records.append({'filename':'watch-01-assistant.png','device':watch_type['name'],'origin':'native-watchos-simulator'})
         sim('shutdown',watch)
     sim('shutdown',device)
-(out.parent/'capture-manifest.json').write_text(json.dumps(records,ensure_ascii=False,indent=2)+'\n')
+(out.parent/'capture-manifest.json').write_text(json.dumps({
+    'source_commit':os.environ.get('GITHUB_SHA'),
+    'version_name':os.environ['IOS_MARKETING_VERSION'],
+    'version_code':int(os.environ['IOS_BUILD_NUMBER']),
+    'captured_at_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    'screens':records,
+},ensure_ascii=False,indent=2)+'\n')
 PYTHON
