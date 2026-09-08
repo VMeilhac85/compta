@@ -70,7 +70,8 @@ def run(*args,timeout=360,**kwargs):
 def sim(*args):return run('xcrun','simctl',*args)
 catalog=json.loads(sim('list','--json'))
 runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.iOS-' in r['identifier'])
-watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
+include_watch='  MaisonPiloteWatch:\n' in (Path(os.environ['PROJECT_DIR'])/'project.yml').read_text()
+watch_runtime=next((r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier']),None) if include_watch else None
 find_type=lambda name:next(t for t in catalog['devicetypes'] if t['name']==name)
 original_run=next((root/'DerivedData/Build/Products').glob('*.xctestrun'))
 for product in (root/'DerivedData/Build/Products/Debug-iphonesimulator').glob('*.app'):
@@ -84,7 +85,8 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
     device=sim('create','Maison Pilote App Store '+family,dtype['identifier'],runtime)
     with (root/'devices.txt').open('a') as stream:stream.write(device+'\n')
     watch=None
-    if family=='iphone':
+    if family=='iphone' and include_watch:
+        assert watch_runtime, 'Runtime watchOS requis pour un projet incluant la Watch.'
         watch_type=find_type('Apple Watch Series 10 (46mm)')
         watch=sim('create','Maison Pilote App Store Watch',watch_type['identifier'],watch_runtime)
         with (root/'devices.txt').open('a') as stream:stream.write(watch+'\n')
