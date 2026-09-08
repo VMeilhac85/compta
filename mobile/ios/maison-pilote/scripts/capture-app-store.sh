@@ -95,7 +95,18 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max'))]:
             # simctl pair active déjà la première paire ; EALREADY est attendu.
             if error.returncode != 37:
                 raise
+    # Démarrer les deux appareils jumelés avant toute installation de la coque.
     sim('boot',device);sim('bootstatus',device,'-b')
+    if watch:
+        sim('boot',watch);sim('bootstatus',watch,'-b')
+        watch_products=root/'DerivedData/Build/Products/Debug-watchsimulator'
+        preinstalled_watch=next(p for p in watch_products.glob('*.app') if plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote.watchkitapp')
+        sim('install',watch,str(preinstalled_watch))
+        phone_products=root/'DerivedData/Build/Products/Debug-iphonesimulator'
+        preinstalled_phone=next(p for p in phone_products.glob('*.app') if plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote')
+        sim('install',device,str(preinstalled_phone))
+        print('Paired product identifiers', plistlib.loads((preinstalled_watch/'Info.plist').read_bytes()).get('WKCompanionAppBundleIdentifier'), flush=True)
+        time.sleep(15)
     sim('status_bar',device,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100')
     # Contrat xcodebuild : TEST_RUNNER_ transmet la variable au processus XCTest.
     test_environment=dict(os.environ)
@@ -137,7 +148,6 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max'))]:
     assert (out/f'{family}-01-accueil.png').exists() and (out/f'{family}-02-documents.png').exists(), 'Captures de connexion et Documents absentes.'
     if watch:
         sim('launch',device,'expert.meilhac.maisonpilote')
-        sim('boot',watch);sim('bootstatus',watch,'-b')
         products=root/'DerivedData/Build/Products/Debug-watchsimulator'
         watch_app=next(p for p in products.glob('*.app') if plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote.watchkitapp')
         sim('install',watch,str(watch_app))
