@@ -21,7 +21,9 @@ assert manifest["version_name"] == metadata["version_name"]
 assert manifest["version_code"] == metadata["build_number"]
 assert manifest["apple_upload_performed"] is False
 assert manifest["app_store_server_validation_performed"] is False
-assert len(manifest["targets"]) == 4
+include_watch = metadata.get("include_apple_watch", True)
+expected_target_count = 4 if include_watch else 2
+assert len(manifest["targets"]) == expected_target_count
 assert all(target["signature_verified"] for target in manifest["targets"])
 capture_manifest = json.loads((root / "screenshots" / "capture-manifest.json").read_text())
 capture_equivalence_verified = False
@@ -47,6 +49,15 @@ if (capture_manifest["version_name"], capture_manifest["version_code"], capture_
                 pattern = rb"(?m)^(MARKETING_VERSION|CURRENT_PROJECT_VERSION) = .*$"
                 released = re.sub(pattern, rb"\1 = VERSION", released)
                 captured = re.sub(pattern, rb"\1 = VERSION", captured)
+            if name.endswith("/project.yml") and not include_watch:
+                def without_watch(raw):
+                    text = raw.decode()
+                    if "  MaisonPiloteWatch:\n" in text:
+                        start = text.index("  MaisonPiloteWatch:\n")
+                        end = text.index("\nschemes:", start)
+                        text = text[:start] + text[end:]
+                    return text.replace("      - target: MaisonPiloteWatch\n", "").replace("        MaisonPiloteWatch: all\n", "").replace("        MaisonPiloteWatchExtension: all\n", "").encode()
+                released, captured = without_watch(released), without_watch(captured)
             assert released == captured, f"Sources natives de capture différentes : {name}"
     capture_equivalence_verified = True
 for field, maximum in {"name": 30, "subtitle": 30, "description": 4000,
@@ -66,7 +77,9 @@ with zipfile.ZipFile(ipa) as archive:
     assert {"maisonpilote.fr", "maisonpilote.meilhac.expert"}.issubset(info["WKAppBoundDomains"])
     target_infos = [plistlib.loads(archive.read(name)) for name in archive.namelist()
                     if name.endswith((".app/Info.plist", ".appex/Info.plist"))]
-    assert len(target_infos) == 4
+    assert len(target_infos) == expected_target_count
+    if not include_watch:
+        assert not any("/Watch/" in name for name in archive.namelist())
     for target in target_infos:
         assert target["CFBundleShortVersionString"] == metadata["version_name"]
         assert target["CFBundleVersion"] == str(metadata["build_number"])
@@ -84,6 +97,8 @@ sizes = {
 captures = []
 missing_families = []
 for family, accepted in sizes.items():
+    if family == "watch" and not include_watch:
+        continue
     images = sorted((root / "screenshots" / "fr-FR").glob(f"{family}-*.png"))
     if not images:
         missing_families.append(family)

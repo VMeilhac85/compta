@@ -1,8 +1,6 @@
 # Déclarations préparées pour la première version publique
 
-Ces réponses sont préparées pour la validation du propriétaire. Elles n’ont pas
-été transmises à Apple. Elles couvrent les écrans mobiles et le trafic de la
-WebView iOS, qui fait partie de l’application.
+Le questionnaire de confidentialité reste à publier dans l’interface Apple. Le lien de confidentialité, la classification d’âge et les informations de revue ont été enregistrés par API le 9 septembre 2026. Le [guide pas à pas](confirmer-compte-apple.md) fournit les réponses préparées. Elles couvrent les écrans mobiles et le trafic de la WebView iOS, qui fait partie de l’application.
 
 ## Fiche de confidentialité App Store
 
@@ -61,11 +59,7 @@ Les coordonnées de revue sont résolues par le mécanisme serveur existant depu
 la configuration et le profil du propriétaire. Elles ont passé sa validation.
 À l’envoi, les informations de revue publique doivent reprendre ces valeurs.
 
-Le compte de démonstration standard n’est pas administrateur. Les fonctions
-Codex réservées aux administrateurs et le relais Apple Watch sont décrits dans
-les notes de revue avec cette restriction. Avant une demande Apple portant sur
-ces fonctions, préparer un accès de revue limité aux seules données fictives,
-sans donner au contrôleur Apple accès à l’administration réelle.
+Le compte de démonstration standard n’est pas administrateur. Les fonctions Codex réservées aux administrateurs ne sont pas accessibles à ce compte. L’Apple Watch est exclue de la première publication. Les notes et le compte de revue de la fiche 1.132 ont été enregistrés. Toute demande ultérieure d’Apple concernant une fonction administrative doit être traitée avec des données fictives et des droits limités.
 
 ## Vérifications finales dans le compte Apple
 

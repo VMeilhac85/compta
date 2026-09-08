@@ -1,3 +1,18 @@
+# Mise à jour du 9 septembre 2026 - 1.132 (132)
+
+- Archive signée réussie sur macOS, Xcode 26 ; deux cibles iPhone/iPad et partage, aucun bundle Watch.
+- Contrôle local du dossier réussi : signature, empreinte, profils, versions, SDK, absence d’instrumentation et captures.
+- Code d’interface inchangé ; comparaison des sources de capture réussie après normalisation des seuls numéros et cibles Watch retirées.
+- Quatre captures traitées COMPLETE par Apple ; textes, catégories, âge, prix gratuit/France, droits sur les contenus et revue renseignés par API.
+- Liens publics confidentialité et assistance : HTTP 200.
+- Scripts shell : contrôle de syntaxe réussi. Aucune interface web/Android modifiée ; aucun nouveau test automatisé ajouté.
+- Cache Laravel vidé ; migrations contrôlées : aucune migration manquante.
+- Confidentialité (questionnaire), DSA et formalités du compte restent à confirmer dans l’interface Apple. Archive 132 non téléversée, fiche en préparation avec sortie manuelle, aucune soumission publique.
+
+Les preuves actualisées sont dans `storage/app/private/mobile/app-store/v1-1.132-132`. Le rapport ci-dessous décrit historiquement la préparation précédente, avec Watch, et ne définit plus le périmètre de la publication.
+
+---
+
 # Contrôle de la première publication - 8 septembre 2026
 
 Version préparée : **1.131 (131)**. Première publication publique proposée,

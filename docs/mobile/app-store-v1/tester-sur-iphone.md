@@ -1,3 +1,5 @@
+> Mise à jour du 9 septembre : la première publication publique est désormais préparée en **1.132 (132), sans Apple Watch**. Cette archive est signée localement et n’a pas encore été envoyée. Le guide TestFlight ci-dessous concerne le build antérieur **1.131 (131)**, transmis avec Watch ; il ne permet pas d’installer la 1.132. La partie Watch est historique.
+
 # Tester Maison Pilote sur iPhone
 
 ## Essai immédiat de l’interface et des fonctions web

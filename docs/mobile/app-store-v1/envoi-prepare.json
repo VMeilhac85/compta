@@ -1,168 +1,60 @@
 {
-  "prepared_at_utc": "2026-09-08T16:34:26.668852+00:00",
-  "executed": false,
-  "apple_upload_performed": true,
-  "authorization": "Envoi et revue TestFlight autorisés le 8 septembre 2026. Les requêtes de version publique préparées ici restent non exécutées et soumises à une autorisation distincte.",
+  "prepared_at_utc": "2026-09-08T23:10:30.081082+00:00",
+  "listing_operations_executed": true,
+  "authorization": "Remplissage de la fiche et préparation iPhone/iPad sans Apple Watch demandés le 9 septembre 2026. Aucun nouvel envoi de version ni soumission publique autorisés dans cette demande.",
   "ipa": {
-    "version": "1.131",
-    "build": 131,
-    "sha256": "82fbcd4e95110a971d02e61c95af6584082b5990eeb752486b6573e86c93b6e8",
-    "source_commit": "e0595ca0970e74d3ab413a3682528462db44960d"
+    "version_name": "1.132",
+    "version_code": 132,
+    "prepared_at_utc": "2026-09-08T23:00:32.865280+00:00",
+    "apple_upload_performed": false,
+    "app_store_server_validation_performed": false,
+    "ipa_filename": "Maison Pilote.ipa",
+    "ipa_sha256": "d39d06f7e837d5c87eab601b4f24642965689637d157dc729da65579d3519040",
+    "source_commit": "b946a7f2c2c188a8f26f397fddf747a01e9af3e1",
+    "targets": [
+      {
+        "bundle_id": "expert.meilhac.maisonpilote",
+        "signature_verified": true,
+        "profile_expires_at_utc": "2027-09-01T14:42:20Z"
+      },
+      {
+        "bundle_id": "expert.meilhac.maisonpilote.share",
+        "signature_verified": true,
+        "profile_expires_at_utc": "2027-09-01T14:42:20Z"
+      }
+    ]
   },
-  "requests_prepared_but_not_sent": [
-    {
-      "method": "PATCH",
-      "path": "/v1/appStoreVersions/fc7006db-f55f-40c2-b36e-f2bba14ccdb0",
-      "body": {
-        "data": {
-          "type": "appStoreVersions",
-          "id": "fc7006db-f55f-40c2-b36e-f2bba14ccdb0",
-          "attributes": {
-            "versionString": "1.131",
-            "copyright": "2026 M4 INFO",
-            "releaseType": "AFTER_APPROVAL"
-          }
-        }
-      }
+  "app_store_version_id": "fc7006db-f55f-40c2-b36e-f2bba14ccdb0",
+  "app_store_state": "PREPARE_FOR_SUBMISSION",
+  "build_associated": null,
+  "configured": {
+    "name": "Maison Pilote",
+    "version": "1.132",
+    "locale": "fr-FR",
+    "categories": [
+      "BUSINESS",
+      "PRODUCTIVITY"
+    ],
+    "screenshots": {
+      "APP_IPHONE_67": 2,
+      "APP_IPAD_PRO_3GEN_129": 2
     },
-    {
-      "method": "PATCH",
-      "path": "/v1/appInfoLocalizations/05e97c92-adb1-4b2b-bd6f-3a8804a72ba4",
-      "body": {
-        "data": {
-          "type": "appInfoLocalizations",
-          "id": "05e97c92-adb1-4b2b-bd6f-3a8804a72ba4",
-          "attributes": {
-            "name": "Maison Pilote",
-            "subtitle": "Vos dossiers au quotidien",
-            "privacyPolicyUrl": "https://maisonpilote.fr/confidentialite"
-          }
-        }
-      }
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/appStoreVersionLocalizations/74aa23d0-cf2c-4887-ada9-976b0fe3eff0",
-      "body": {
-        "data": {
-          "type": "appStoreVersionLocalizations",
-          "id": "74aa23d0-cf2c-4887-ada9-976b0fe3eff0",
-          "attributes": {
-            "description": "Maison Pilote accompagne les professionnels, leurs clients et leurs salariés dans le suivi quotidien de leurs dossiers.\n\nRetrouvez les informations et les services auxquels votre organisation vous donne accès, depuis votre iPhone ou votre iPad.\n\nDOCUMENTS ET JUSTIFICATIFS\nConsultez vos documents, photographiez un justificatif et transmettez les fichiers utiles à votre dossier. Partagez aussi un document vers Maison Pilote depuis une autre application.\n\nESPACE SALARIÉ\nSelon les droits accordés par votre organisation, retrouvez vos bulletins, documents, congés et absences. Préparez vos notes de frais et vos déplacements professionnels.\n\nSUIVI ET ÉCHANGES\nConsultez vos tâches et notifications, échangez avec les personnes habilitées et retrouvez le support Maison Pilote. Les informations disponibles dépendent de votre profil et des modules activés.\n\nFONCTIONS NATIVES\nUtilisez la caméra, la dictée et les notifications avec votre autorisation. Protégez votre session avec Face ID ou Touch ID sur les appareils compatibles.\n\nL’application nécessite un compte Maison Pilote existant et une autorisation d’accès mobile. Les fonctions dépendent des droits associés au compte. Une connexion Internet est nécessaire pour synchroniser les données et utiliser les services en ligne.\n\nL’application Apple Watch accompagne l’iPhone pour les fonctions d’assistance réservées aux administrateurs autorisés.\n\nPolitique de confidentialité : https://maisonpilote.fr/confidentialite\nAssistance et contact : https://maisonpilote.fr/mentions-legales",
-            "keywords": "documents,justificatifs,entreprise,salariés,congés,frais,gestion,dossiers,bulletins",
-            "marketingUrl": "https://maisonpilote.fr",
-            "promotionalText": "Vos documents, justificatifs et services professionnels réunis dans Maison Pilote, selon les droits de votre organisation.",
-            "supportUrl": "https://maisonpilote.fr/mentions-legales"
-          }
-        }
-      }
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/appInfos/e3ca04e8-0e5d-4a1c-99bc-4d6a1e5a097a",
-      "body": {
-        "data": {
-          "type": "appInfos",
-          "id": "e3ca04e8-0e5d-4a1c-99bc-4d6a1e5a097a",
-          "relationships": {
-            "primaryCategory": {
-              "data": {
-                "type": "appCategories",
-                "id": "BUSINESS"
-              }
-            },
-            "secondaryCategory": {
-              "data": {
-                "type": "appCategories",
-                "id": "PRODUCTIVITY"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "method": "PATCH",
-      "path": "/v1/ageRatingDeclarations/e3ca04e8-0e5d-4a1c-99bc-4d6a1e5a097a",
-      "body": {
-        "data": {
-          "type": "ageRatingDeclarations",
-          "id": "e3ca04e8-0e5d-4a1c-99bc-4d6a1e5a097a",
-          "attributes": {
-            "advertising": false,
-            "gambling": false,
-            "healthOrWellnessTopics": false,
-            "lootBox": false,
-            "parentalControls": false,
-            "ageAssurance": false,
-            "unrestrictedWebAccess": false,
-            "socialMedia": false,
-            "socialMediaAgeRestricted": false,
-            "alcoholTobaccoOrDrugUseOrReferences": "NONE",
-            "contests": "NONE",
-            "gamblingSimulated": "NONE",
-            "gunsOrOtherWeapons": "NONE",
-            "medicalOrTreatmentInformation": "NONE",
-            "profanityOrCrudeHumor": "NONE",
-            "sexualContentGraphicAndNudity": "NONE",
-            "sexualContentOrNudity": "NONE",
-            "horrorOrFearThemes": "NONE",
-            "matureOrSuggestiveThemes": "NONE",
-            "violenceCartoonOrFantasy": "NONE",
-            "violenceRealisticProlongedGraphicOrSadistic": "NONE",
-            "violenceRealistic": "NONE",
-            "messagingAndChat": true,
-            "userGeneratedContent": true,
-            "ageRatingOverrideV2": "NONE",
-            "koreaAgeRatingOverride": "NONE"
-          }
-        }
-      }
-    }
-  ],
-  "pricing": {
+    "price": "0.00 EUR",
     "base_territory": "FRA",
     "territories": [
       "FRA"
     ],
-    "customer_price": "0.00",
-    "currency": "EUR",
-    "free_price_point_id": "eyJzIjoiNjgwNzQzMjM3NCIsInQiOiJGUkEiLCJwIjoiMTAwMDAifQ",
-    "selection": "proposition à approuver"
+    "release_type": "MANUAL",
+    "content_rights_declaration": "USES_THIRD_PARTY_CONTENT",
+    "review_credentials_saved": true,
+    "privacy_policy_url": "https://maisonpilote.fr/confidentialite"
   },
-  "screenshots": {
-    "localization_id": "74aa23d0-cf2c-4887-ada9-976b0fe3eff0",
-    "families": {
-      "iphone": "APP_IPHONE_67",
-      "ipad": "APP_IPAD_PRO_3GEN_129",
-      "watch": "APP_WATCH_SERIES_10"
-    },
-    "condition": "Uniquement les médias acceptés par le contrôle visuel du dossier signé.",
-    "api_reference": "https://developer.apple.com/documentation/appstoreconnectapi/screenshotdisplaytype",
-    "note": "Les captures iPhone 6,9 pouces utilisent le groupe API APP_IPHONE_67 ; vérifier les exigences renvoyées par Apple lors de l’envoi."
-  },
-  "review_access": {
-    "source": "mobile.ios.app_store_connect + coordonnées du propriétaire résolues par AppStoreConnectTestFlightVerifier",
-    "credentials_included": false,
-    "demo_scope": "Dossier fictif Démo GRH ; pas de droits administrateur."
-  },
-  "steps_requiring_apple_response": [
-    "IPA 1.131 déjà transmise à TestFlight et traitée VALID ; utiliser ce même build pour toute soumission publique ultérieure autorisée.",
-    "Relire les identifiants et états Apple avant les écritures préparées.",
-    "Configurer le tarif gratuit et le territoire retenu, après validation du propriétaire.",
-    "Créer les jeux de captures, utiliser les opérations de téléversement renvoyées par Apple et vérifier leur traitement.",
-    "Renseigner le compte et le contact de revue depuis leur configuration privée.",
-    "Associer le build 131 traité, puis soumettre uniquement selon la portée autorisée."
+  "receipts_directory": "storage/app/private/mobile/app-store/v1-1.132-132/apple-listing",
+  "remaining_items": [
+    "Publier les réponses préparées au questionnaire de confidentialité dans App Store Connect.",
+    "Confirmer le statut DSA et traiter les éventuelles formalités du compte Apple.",
+    "Sur décision explicite : envoyer l’archive 132 sans Watch, attendre son traitement, l’associer à la fiche et soumettre selon l’autorisation donnée."
   ],
-  "owner_account_checks": [
-    "Fiche de confidentialité",
-    "Contrats signalés par Apple",
-    "Statut professionnel DSA"
-  ],
-  "submission_ready": false,
-  "unresolved_preconditions": [
-    "Liaison Apple Watch et capture représentative à valider ; inclusion Watch confirmée par le propriétaire."
-  ],
-  "testflight_build_id": "0c986500-33ad-4e3d-a5e8-159655d1cac3",
+  "guide": "confirmer-compte-apple.md",
   "app_store_public_submission_performed": false
 }

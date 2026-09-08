@@ -16,7 +16,5 @@ Utilisez la caméra, la dictée et les notifications avec votre autorisation. Pr
 
 L’application nécessite un compte Maison Pilote existant et une autorisation d’accès mobile. Les fonctions dépendent des droits associés au compte. Une connexion Internet est nécessaire pour synchroniser les données et utiliser les services en ligne.
 
-L’application Apple Watch accompagne l’iPhone pour les fonctions d’assistance réservées aux administrateurs autorisés.
-
 Politique de confidentialité : https://maisonpilote.fr/confidentialite
 Assistance et contact : https://maisonpilote.fr/mentions-legales
