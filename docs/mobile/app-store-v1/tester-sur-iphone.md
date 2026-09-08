@@ -1,5 +1,17 @@
 # Tester Maison Pilote sur iPhone
 
+## Essai immédiat de l’interface et des fonctions web
+
+Dans Safari, ouvrir [Maison Pilote pour iPhone](https://maisonpilote.fr/api/application-ios/test),
+puis se connecter avec son compte Maison Pilote. Pour l’installer sur l’écran
+d’accueil : Partager, « Sur l’écran d’accueil », puis Ajouter.
+
+Cette version permet d’essayer l’interface et les fonctions web actuelles.
+Elle ne valide pas les extensions natives de partage, la liaison Apple Watch
+ni toutes les autorisations propres à l’application installée par TestFlight.
+
+## Application native avec TestFlight
+
 1. Installer [TestFlight depuis l’App Store](https://apps.apple.com/app/testflight/id899247664).
 2. Sur l’iPhone, ouvrir dans Safari le lien
    [Rejoindre la bêta Maison Pilote](https://testflight.apple.com/join/Ubxzs62C).
@@ -12,9 +24,14 @@
 Au contrôle du 8 septembre 2026, le groupe public contient la version **1.112
 (112)**, approuvée pour la bêta et compatible avec **iOS 16.4 ou ultérieur**.
 Son expiration est annoncée par Apple au 30 novembre 2026. Le groupe est ouvert
-avec une limite de 100 testeurs. La version préparée **1.128 (128)** ne sera
+avec une limite de 100 testeurs. La version préparée **1.129 (129)** ne sera
 proposée qu’après une demande explicite d’envoi du propriétaire et sa mise à
 disposition par Apple.
+
+La 1.112 est antérieure à la correction native du changement de domaine. Si
+elle reste sur un écran de chargement ou ouvre mal le site, utiliser l’essai
+web ci-dessus en attendant l’envoi autorisé de la 1.129. Réinstaller la 1.112
+ne garantit pas de corriger cette règle intégrée à son binaire.
 
 ## Parcours conseillé
 

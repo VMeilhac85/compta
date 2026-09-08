@@ -88,7 +88,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         WKAppBoundDomains:
           - "$(MAISON_PILOTE_URL_HOST)"
-          - "$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)"
+          - "$(MAISON_PILOTE_ASSOCIATED_DOMAIN)"
     entitlements:
       path: MaisonPilote/Resources/MaisonPilote.entitlements
     configFiles:

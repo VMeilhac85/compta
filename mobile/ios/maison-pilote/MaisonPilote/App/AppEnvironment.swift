@@ -13,7 +13,7 @@ enum AppEnvironment {
     }
 
     static var trustedHosts: Set<String> {
-        [trustedHost, canonicalHost]
+        [trustedHost, canonicalHost, defaultHost]
     }
 
     static var initialURL: URL {
@@ -56,7 +56,6 @@ enum AppEnvironment {
         candidate.fragment = nil
         shell.fragment = nil
         return candidate.scheme?.lowercased() == shell.scheme?.lowercased()
-            && candidate.host?.lowercased() == shell.host?.lowercased()
             && (candidate.port ?? 443) == (shell.port ?? 443)
             && candidate.percentEncodedPath == shell.percentEncodedPath
             && candidate.percentEncodedQuery == shell.percentEncodedQuery

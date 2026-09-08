@@ -1,6 +1,6 @@
 # Maison Pilote - préparation de la première publication App Store
 
-Version proposée : **1.128 (128)**. « V1 » désigne la première publication
+Version proposée : **1.129 (129)**. « V1 » désigne la première publication
 publique ; le numéro reste cohérent avec les versions mobiles déjà produites.
 
 ## Contenu à valider
@@ -28,10 +28,12 @@ l’iPhone, ainsi que sur les écrans natifs Android.
 Le contrôle natif a également révélé un écran de chargement bloqué sur l’ancien
 domaine : le document HTML restait sur `maisonpilote.meilhac.expert`, alors que
 ses modules JavaScript étaient redirigés vers `maisonpilote.fr`. Le point
-d’entrée iOS rejoint désormais le domaine canonique avant de charger
-l’interface, en conservant ses paramètres. Cette correction s’applique aussi
-aux coques iOS déjà installées. Les API des anciens clients Android restent
-accessibles sur leur adresse historique.
+d’entrée web iOS rejoint désormais le domaine canonique en conservant ses
+paramètres. La nouvelle coque démarre directement sur ce domaine et reconnaît
+les deux adresses pour sa navigation, ses liens et ses autorisations. Android
+utilise également le domaine canonique et conserve les retours de connexion
+historiques. Une ancienne coque iOS peut nécessiter une nouvelle version
+TestFlight, car sa règle native de navigation n’est pas modifiable côté serveur.
 
 ## Construction et conservation
 
@@ -52,8 +54,9 @@ figure pas dans l’IPA. Le compte utilisé n’accède qu’au dossier fictif �
 
 Les fichiers signés sont des fichiers de distribution App Store. Ils ne
 s’installent pas directement sur un iPhone depuis un lien de téléchargement.
-Pour tester sans nouvelle publication, utiliser la bêta TestFlight 1.112 déjà
-présente chez Apple, avec les limites précisées dans le guide iPhone.
+Pour tester sans nouvelle publication, utiliser la version web sur l’iPhone.
+La bêta TestFlight 1.112 existe déjà chez Apple ; ses limites sont précisées
+dans le guide iPhone.
 
 Le contrôle hors ligne du dossier téléchargé s’effectue avec :
 
@@ -74,7 +77,7 @@ serveur Apple. Cette dernière ne peut être obtenue avant la transmission réel
    Connect à partir des réponses préparées.
 3. Sur demande explicite d’envoi : transmettre l’IPA contrôlée, conserver son
    numéro de build et son empreinte, attendre le traitement Apple, renseigner la
-   version publique 1.128 et ses médias, associer le build et les informations de
+   version publique 1.129 et ses médias, associer le build et les informations de
    revue, puis effectuer la soumission autorisée.
 4. La décision d’App Review appartient à Apple. Si le propriétaire a autorisé la
    publication après approbation, appliquer ce mode ; sinon conserver la version
