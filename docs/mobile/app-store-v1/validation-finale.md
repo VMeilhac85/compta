@@ -3,6 +3,11 @@
 Version proposée : **1.131, build 131**. Le téléchargement est proposé gratuit,
 en France, avec une fiche française et un compte Maison Pilote existant.
 
+Le propriétaire a autorisé l’envoi TestFlight et confirmé l’inclusion de la
+Watch le 8 septembre 2026. Cet envoi est effectué ; voir le
+[statut TestFlight](statut-testflight.md). L’autorisation de soumission ou de
+publication App Store publique reste à obtenir.
+
 **Préalable non résolu : Apple Watch.** L’archive contient l’application Watch,
 mais sa liaison et une capture représentative n’ont pas pu être validées.
 Le dossier n’est donc pas encore au stade du seul accord final. Résoudre ce
@@ -24,7 +29,7 @@ ce périmètre, avant toute demande de transmission. Voir le
   App Store avec sortie manuelle, ou soumission avec publication après approbation
   Apple.
 
-Les trois portées sont distinctes. La préparation n’a déclenché aucune d’elles.
+Les trois portées sont distinctes. Seule la portée TestFlight a été autorisée.
 La décision d’accepter l’application et le délai de revue appartiennent à Apple.
 
 ## Exécution après autorisation

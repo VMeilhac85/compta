@@ -1,8 +1,8 @@
 {
   "prepared_at_utc": "2026-09-08T16:34:26.668852+00:00",
   "executed": false,
-  "apple_upload_performed": false,
-  "authorization": "Approbation explicite du propriétaire requise avant toute requête d’écriture ou transmission.",
+  "apple_upload_performed": true,
+  "authorization": "Envoi et revue TestFlight autorisés le 8 septembre 2026. Les requêtes de version publique préparées ici restent non exécutées et soumises à une autorisation distincte.",
   "ipa": {
     "version": "1.131",
     "build": 131,
@@ -147,7 +147,7 @@
     "demo_scope": "Dossier fictif Démo GRH ; pas de droits administrateur."
   },
   "steps_requiring_apple_response": [
-    "Transmettre cette IPA après autorisation et attendre le traitement Apple.",
+    "IPA 1.131 déjà transmise à TestFlight et traitée VALID ; utiliser ce même build pour toute soumission publique ultérieure autorisée.",
     "Relire les identifiants et états Apple avant les écritures préparées.",
     "Configurer le tarif gratuit et le territoire retenu, après validation du propriétaire.",
     "Créer les jeux de captures, utiliser les opérations de téléversement renvoyées par Apple et vérifier leur traitement.",
@@ -161,6 +161,8 @@
   ],
   "submission_ready": false,
   "unresolved_preconditions": [
-    "Liaison Apple Watch et capture représentative non validées. Voir blocage-apple-watch.md."
-  ]
+    "Liaison Apple Watch et capture représentative à valider ; inclusion Watch confirmée par le propriétaire."
+  ],
+  "testflight_build_id": "0c986500-33ad-4e3d-a5e8-159655d1cac3",
+  "app_store_public_submission_performed": false
 }

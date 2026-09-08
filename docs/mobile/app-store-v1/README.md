@@ -3,12 +3,19 @@
 Version proposée : **1.131 (131)**. « V1 » désigne la première publication
 publique ; le numéro reste cohérent avec les versions mobiles déjà produites.
 
+**Mise à jour : envoi TestFlight autorisé et effectué le 8 septembre 2026.**
+Apple a validé le traitement de la 1.131 et la revue bêta est en attente.
+La Watch est conservée, conformément au choix du propriétaire. Voir le
+[statut de transmission](statut-testflight.md) et le [guide iPhone](tester-sur-iphone.md).
+La soumission publique App Store reste distincte et n’a pas été autorisée.
+
 **État : archive signée préparée, soumission encore bloquée par l’Apple Watch.**
 Les quatre captures iPhone et iPad sont retenues. La montre reste sur
 « Vérification de l’accès… » après 70 secondes et sa capture a été écartée.
 Il reste donc un travail technique avant de pouvoir ne demander que la
 validation finale. Le [diagnostic Watch](blocage-apple-watch.md) précise les
-preuves conservées et les suites possibles. Aucune transmission Apple n’a eu lieu.
+preuves conservées et les suites possibles. Ce blocage concerne encore la
+préparation de la fiche publique ; l’envoi de la bêta est décrit ci-dessus.
 
 ## Contenu à valider
 

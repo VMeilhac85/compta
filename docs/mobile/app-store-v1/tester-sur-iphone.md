@@ -25,17 +25,34 @@ ni toutes les autorisations propres à l’application installée par TestFlight
    l’accès mobile. Les identifiants Apple servent à TestFlight ; ceux de
    Maison Pilote servent à l’application.
 
-Au contrôle du 8 septembre 2026, le groupe public contient la version **1.112
-(112)**, approuvée pour la bêta et compatible avec **iOS 16.4 ou ultérieur**.
-Son expiration est annoncée par Apple au 30 novembre 2026. Le groupe est ouvert
-avec une limite de 100 testeurs. La version préparée **1.131 (131)** ne sera
-proposée qu’après une demande explicite d’envoi du propriétaire et sa mise à
-disposition par Apple.
+La version **1.131 (131)** a été transmise le 8 septembre 2026 avec l’autorisation
+du propriétaire. Apple a validé son traitement ; elle attend la revue bêta avant
+les tests externes. La notification automatique est activée. Le groupe est
+ouvert avec une limite de 100 testeurs. L’application demande **iOS 16.4 ou
+ultérieur** ; son expiration de bêta est annoncée au 7 décembre 2026.
+
+Vérifier que TestFlight affiche bien **1.131 (131)** avant de commencer les essais.
+Si cette version n’est pas encore proposée, attendre l’approbation Apple ;
+le [statut de transmission](statut-testflight.md) précise le dernier contrôle.
 
 La 1.112 est antérieure à la correction native du changement de domaine. Si
 elle reste sur un écran de chargement ou ouvre mal le site, utiliser l’essai
-web ci-dessus en attendant l’envoi autorisé de la 1.131. Réinstaller la 1.112
+web ci-dessus en attendant la disponibilité de la 1.131. Réinstaller la 1.112
 ne garantit pas de corriger cette règle intégrée à son binaire.
+
+## Apple Watch incluse
+
+Installer d’abord Maison Pilote sur l’iPhone jumelé à la montre. Dans TestFlight,
+ouvrir la fiche de l’app, puis sa section Informations / Détails : si la montre
+est compatible, le bouton d’installation de l’app Apple Watch y apparaît.
+Cette méthode est décrite dans l’[aide officielle TestFlight](https://testflight.apple.com/).
+Maison Pilote demande **watchOS 9.4 ou ultérieur**.
+
+Ouvrir Maison Pilote sur l’iPhone et se connecter, puis ouvrir l’app sur la
+montre en gardant l’iPhone à proximité. L’assistant Watch est réservé aux comptes
+administrateurs ; un compte client ou salarié ne dispose pas de cette fonction.
+Vérifier la liaison, puis une demande simple sans modification de données métier.
+La liaison n’a pas été validée sur une paire physique pendant la préparation.
 
 ## Parcours conseillé
 
@@ -52,11 +69,9 @@ Pour signaler un problème, utiliser « Envoyer un retour bêta » dans TestFlig
 et indiquer l’écran, l’action, le résultat attendu et le résultat observé.
 Masquer les données réelles avant de joindre une capture.
 
-Si TestFlight n’affiche aucun build installable, le build peut nécessiter le
-dernier démarrage de la distribution externe dans App Store Connect malgré
-l’approbation de revue. Son état API constaté est `BETA_APPROVED`, et non
-`IN_BETA_TESTING`. Ne pas confondre ce problème de distribution avec un mot de
-passe Maison Pilote incorrect. Aucune activation Apple n’a été effectuée
-pendant la préparation.
+Au contrôle suivant l’envoi, l’état de la 1.131 est `WAITING_FOR_BETA_REVIEW`.
+L’absence de bouton Installer pour cette version relève alors de sa disponibilité
+TestFlight et non du mot de passe Maison Pilote. La revue de la bêta ne constitue
+pas une publication sur l’App Store public.
 
 [Fonctionnement officiel de TestFlight](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/)
