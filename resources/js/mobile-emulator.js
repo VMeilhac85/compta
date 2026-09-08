@@ -6853,7 +6853,7 @@ if (root) {
         const searchLabel = personalDocuments
             ? 'Recherche perso'
             : (allFolders ? 'Recherche globale' : 'Recherche locale');
-        renderFrame('Documents', `<div class="mobile-app-documents-toolbar">${folderSelector}${actions}</div><form data-mobile-search="documents" data-document-search-scope="${scope}" data-document-folder-id="${folderId}"><div class="mobile-app-document-search-row"><div class="mobile-app-document-search"><span class="mobile-app-document-search__icon">${documentSearchIcon}</span><input class="mobile-app-search" name="q" value="${escapeHtml(search)}" maxlength="120" placeholder="${searchLabel}" aria-label="${searchLabel}" autocomplete="off"></div>${documentSortButtonMarkup()}${documentSearchScopeMarkup(scope)}</div></form><div data-mobile-documents-results class="${state.documentSelectionMode ? 'is-selection-mode' : ''}" aria-live="polite">${list}</div>${documentSelectionToolbarMarkup()}`, {
+        renderFrame('Documents', `<div class="mobile-app-documents-toolbar">${folderSelector}${actions}</div><form data-mobile-search="documents" data-document-search-scope="${scope}" data-document-folder-id="${folderId}"><div class="mobile-app-document-search-row"><div class="mobile-app-document-search"><span class="mobile-app-document-search__icon">${documentSearchIcon}</span><input class="mobile-app-search" name="q" value="${escapeHtml(search)}" maxlength="120" placeholder="${searchLabel}" aria-label="${searchLabel}" autocomplete="off"></div>${documentSortButtonMarkup()}${documentSearchScopeMarkup(scope)}</div></form><div class="mobile-app-document-create-row"><button type="button" data-mobile-document-folder-create data-parent-id="${folderId}" data-personal="${personalDocuments ? '1' : '0'}" data-destination="${escapeHtml(currentFolder.path || (personalDocuments ? 'Documents personnels' : 'Racine'))}" ${uploadDisabled ? 'disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H2v16h20V6H12l-2-2ZM4 6h5l2 2h9v10H4V6Zm9 4h-2v2H9v2h2v2h2v-2h2v-2h-2v-2Z"/></svg>Nouveau dossier</button></div><div data-mobile-documents-results class="${state.documentSelectionMode ? 'is-selection-mode' : ''}" aria-live="polite">${list}</div>${documentSelectionToolbarMarkup()}`, {
             tab: 'documents',
         });
         window.requestAnimationFrame(() => enhanceDocumentFolderFlow());
@@ -8265,6 +8265,37 @@ if (root) {
         enhanceMobileTextFields(app.querySelector('[data-mobile-quick-creation]'));
     }
 
+    function openDocumentFolderCreation(button) {
+        if (state.readOnly || button.disabled) return;
+        const parentId = Number(button.dataset.parentId) || 0;
+        openQuickCreationDialog('document-folder', 'Nouveau dossier', `<form class="mobile-app-form-panel" data-mobile-form="document_folder" data-dossier-id="${state.activeDossierId}" data-personal="${button.dataset.personal}" data-parent-id="${parentId}"><p class="mobile-app-form-hint">Dans : ${escapeHtml(button.dataset.destination || 'Racine')}</p><div class="mobile-app-field"><label for="mobile-new-folder-name">Nom du dossier</label><input id="mobile-new-folder-name" name="name" maxlength="255" required autocomplete="off" enterkeyhint="done"></div><p class="mobile-app-form-error" data-mobile-form-error role="alert" hidden></p>${writeButton('Créer le dossier')}</form>`);
+        window.requestAnimationFrame(() => app.querySelector('#mobile-new-folder-name')?.focus({ preventScroll: true }));
+    }
+
+    function setCreationFormBusy(form, busy, label) {
+        form.dataset.submitting = busy ? '1' : '0';
+        form.setAttribute('aria-busy', busy ? 'true' : 'false');
+        const button = form.querySelector('button[type="submit"]');
+        if (button) { button.disabled = busy; button.textContent = label; }
+        const close = form.closest('[data-mobile-quick-creation]')?.querySelector('[data-mobile-quick-creation-close]');
+        if (close) close.disabled = busy;
+        if (form.dataset.mobileForm === 'report') syncMobileReportSubmitState(form);
+    }
+
+    function creationFormError(form, message = '') {
+        const error = form.querySelector('[data-mobile-form-error]');
+        if (error) { error.textContent = message; error.hidden = !message; }
+    }
+
+    function creationIdempotencyKey(form, data) {
+        const signature = JSON.stringify(data);
+        if (form.dataset.payloadSignature !== signature) {
+            form.dataset.payloadSignature = signature;
+            form.dataset.idempotencyKey = crypto.randomUUID();
+        }
+        return form.dataset.idempotencyKey;
+    }
+
     async function createExpenseDraft() {
         if (state.expenseDraftCreationPromise) return state.expenseDraftCreationPromise;
         const today = new Date().toISOString().slice(0, 10);
@@ -8650,10 +8681,31 @@ if (root) {
 
     async function renderReports() { await renderReportForm(); }
 
+    function setMobileReportDate(input, value) {
+        const picker = input?.closest('.mobile-app-date-entry')?.querySelector('[data-mobile-date-picker]');
+        if (picker) {
+            picker.value = value;
+            picker.dispatchEvent(new Event('change', { bubbles: true }));
+        } else if (input) {
+            input.value = value;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
     function syncMobileReportFields(form) {
         if (!(form instanceof HTMLFormElement)) return;
         const type = String(form.elements.report_type?.value || 'balance');
         const snapshot = ['immobilisations', 'loans'].includes(type);
+        if (form.dataset.reportSnapshot !== undefined && (form.dataset.reportSnapshot === '1') !== snapshot) {
+            setMobileReportDate(snapshot ? form.elements.as_of : form.elements.period_end,
+                snapshot ? form.elements.period_end.value : form.elements.as_of.value);
+        }
+        form.dataset.reportSnapshot = snapshot ? '1' : '0';
+        if (form.dataset.previousReportType !== type) {
+            form.querySelectorAll('[data-report-filters]').forEach((details) => { details.open = false; });
+            form.querySelectorAll('[data-report-selection-search]').forEach((input) => { input.value = ''; });
+        }
+        form.dataset.previousReportType = type;
         form.querySelectorAll('[data-mobile-report-type-choice]').forEach((button) => {
             const selected = button.dataset.mobileReportTypeChoice === type;
             button.classList.toggle('is-selected', selected);
@@ -8679,7 +8731,44 @@ if (root) {
             asOf.hidden = !snapshot;
             asOf.querySelectorAll('input').forEach((input) => { input.disabled = !snapshot; });
         }
+        const periodLabel = form.querySelector('[data-report-period-label]');
+        if (periodLabel) periodLabel.textContent = snapshot ? 'Date de l’état' : 'Période';
+        const description = form.querySelector('[data-report-description]');
+        if (description) description.textContent = mobileReportDescription(type);
+        form.querySelectorAll('[data-report-period-preset]').forEach((button) => {
+            button.hidden = snapshot && button.dataset.reportPeriodPreset !== 'year';
+            button.textContent = snapshot ? 'Aujourd’hui' : ({ all: 'Période complète', year: 'Année en cours', month: 'Mois en cours' }[button.dataset.reportPeriodPreset]);
+        });
         syncMobileReportSelectionActions(form);
+    }
+
+    function mobileReportDescription(type) {
+        return ({ general_ledger: 'Le détail des écritures, compte par compte.', journal: 'Les écritures regroupées par journal comptable.', immobilisations: 'La situation des immobilisations à la date choisie.', loans: 'La situation des emprunts à la date choisie.' })[type] || 'Une vue des mouvements et soldes de vos comptes.';
+    }
+
+    function syncMobileReportSubmitState(form) {
+        if (!(form instanceof HTMLFormElement)) return;
+        const type = form.elements.report_type.value;
+        const snapshot = ['immobilisations', 'loans'].includes(type);
+        const start = snapshot ? form.elements.as_of.value : form.elements.period_start.value;
+        const end = snapshot ? start : form.elements.period_end.value;
+        const selected = !['general_ledger', 'journal'].includes(type)
+            || Boolean(form.querySelector('[data-report-field="' + type + '"] input[type="checkbox"]:checked'));
+        const valid = Boolean(start && end && start <= end && selected);
+        const button = form.querySelector('button[type="submit"]');
+        if (button) button.disabled = state.readOnly || form.dataset.submitting === '1' || !valid;
+    }
+
+    function validateMobileReport(form) {
+        const type = form.elements.report_type.value;
+        const snapshot = ['immobilisations', 'loans'].includes(type);
+        const start = snapshot ? form.elements.as_of.value : form.elements.period_start.value;
+        const end = snapshot ? start : form.elements.period_end.value;
+        let message = '';
+        if (!start || !end || start > end) message = 'Choisissez une période valide : la date de fin doit suivre la date de début.';
+        if (['general_ledger', 'journal'].includes(type) && !form.querySelector('[data-report-field="' + type + '"] input[type="checkbox"]:checked')) message = type === 'journal' ? 'Sélectionnez au moins un journal.' : 'Sélectionnez au moins un compte.';
+        creationFormError(form, message);
+        return !message;
     }
 
     function syncMobileReportSelectionActions(form) {
@@ -8688,25 +8777,34 @@ if (root) {
             if (selection.hidden) return;
             const checkboxes = Array.from(selection.querySelectorAll('input[type="checkbox"]:not(:disabled)'));
             const selected = checkboxes.filter((checkbox) => checkbox.checked).length;
+            const query = String(selection.querySelector('[data-report-selection-search]')?.value || '').trim().toLocaleLowerCase('fr');
+            checkboxes.forEach((checkbox) => { checkbox.closest('label').hidden = !checkbox.closest('label').textContent.toLocaleLowerCase('fr').includes(query); });
+            const matching = checkboxes.filter((checkbox) => !checkbox.closest('label').hidden);
             const selectAll = selection.querySelector('[data-report-select-all]');
             const deselectAll = selection.querySelector('[data-report-deselect-all]');
-            if (selectAll) selectAll.hidden = checkboxes.length > 0 && selected === checkboxes.length;
-            if (deselectAll) deselectAll.hidden = selected === 0;
+            selectAll.hidden = !matching.some((checkbox) => !checkbox.checked);
+            deselectAll.hidden = !matching.some((checkbox) => checkbox.checked);
+            selectAll.textContent = query ? 'Sélectionner les résultats' : 'Tout sélectionner';
+            deselectAll.textContent = query ? 'Désélectionner les résultats' : 'Tout désélectionner';
+            selection.querySelector('[data-report-selection-count]').textContent = `${selected} ${selected === 1 ? 'élément sélectionné' : 'éléments sélectionnés'}`;
+            selection.querySelector('[data-report-selection-empty]').hidden = matching.length > 0;
         });
+        syncMobileReportSubmitState(form);
     }
 
     function mobileReportSelectionMarkup(type, items, valueKey, label) {
         const name = type === 'general_ledger' ? 'accounts[]' : 'journals[]';
         return `<section class="mobile-app-report-selection" data-report-field="${type}" data-report-selection hidden>
+            <strong>${escapeHtml(label)}</strong><p class="mobile-app-form-hint" data-report-selection-count></p>
+            <div class="mobile-app-field"><input type="search" data-report-selection-search placeholder="Rechercher" aria-label="Rechercher dans ${escapeHtml(label)}"></div>
             <div class="mobile-app-report-selection__toolbar">
-                <strong>${escapeHtml(label)}</strong>
                 <span><button type="button" data-report-select-all hidden>Tout sélectionner</button><button type="button" data-report-deselect-all>Tout désélectionner</button></span>
             </div>
             <div class="mobile-app-report-selection__items">${items.map((item) => {
                 const value = String(item[valueKey] || '');
                 const itemLabel = type === 'general_ledger' ? `${value} - ${item.label || ''}` : `${value} - ${item.label || value}`;
                 return `<label><input type="checkbox" name="${name}" value="${escapeHtml(value)}" checked><span>${escapeHtml(itemLabel)}</span></label>`;
-            }).join('')}</div>
+            }).join('')}<p class="mobile-app-form-hint" data-report-selection-empty hidden>Aucun résultat</p></div>
         </section>`;
     }
 
@@ -8714,7 +8812,7 @@ if (root) {
         const type = String(report.key || report.type || '');
         const filters = Array.isArray(report.filters) ? report.filters : [];
         if (!filters.length) return '';
-        return `<section class="mobile-app-report-filters" data-report-filters="${escapeHtml(type)}" hidden><h2>Filtres</h2>${filters.map((filter) => `<label class="mobile-app-task-switch"><strong>${escapeHtml(filter.label || filter.key)}</strong><input type="checkbox" name="${escapeHtml(filter.key)}" value="1" ${filter.default ? 'checked' : ''} disabled><span aria-hidden="true"><span></span></span></label>`).join('')}</section>`;
+        return `<details class="mobile-app-report-filters" data-report-filters="${escapeHtml(type)}" hidden><summary>Options d’affichage</summary>${filters.map((filter) => `<label class="mobile-app-task-switch"><strong>${escapeHtml(filter.label || filter.key)}</strong><input type="checkbox" name="${escapeHtml(filter.key)}" value="1" ${filter.default ? 'checked' : ''} disabled><span aria-hidden="true"><span></span></span></label>`).join('')}</details>`;
     }
 
     function mobileReportHistoryMarkup(reports) {
@@ -8763,7 +8861,7 @@ if (root) {
         }, 2000);
     }
 
-    function mobileReportCreationForm(data, { formOpen = false, quickOrigin = false } = {}) {
+    function mobileReportCreationForm(data, dossierId) {
         const catalog = Array.isArray(data) ? data : (data.reports || []);
         const accounts = Array.isArray(data.accounts) ? data.accounts : [];
         const journals = Array.isArray(data.journals) ? data.journals : [];
@@ -8779,30 +8877,34 @@ if (root) {
         const initialType = String(availableCatalog[0]?.key || availableCatalog[0]?.type || 'balance');
         const typeChoices = `<div class="mobile-app-field"><label>Type d’état</label><div class="mobile-app-report-types">${availableCatalog.map((item, index) => `<button type="button" data-mobile-report-type-choice="${escapeHtml(item.key || item.type)}" class="${index === 0 ? 'is-selected' : ''}" aria-pressed="${index === 0 ? 'true' : 'false'}">${escapeHtml(item.label || item.name || item.key)}</button>`).join('')}</div><input type="hidden" name="report_type" value="${escapeHtml(initialType)}"></div>`;
         const filters = availableCatalog.map(mobileReportFiltersMarkup).join('');
-        return `<form class="mobile-app-form-panel mobile-app-report-form" data-mobile-form="report" ${quickOrigin ? 'data-mobile-quick-origin="home"' : ''} ${formOpen ? '' : 'hidden'}>${typeChoices}<div class="mobile-app-field"><label>Format</label><select name="format"><option value="pdf">PDF</option><option value="xlsx">Excel</option></select></div>${filters}${supplementalFields}${periodFields}${writeButton('Lancer la génération')}</form>`;
+        return `<form class="mobile-app-form-panel mobile-app-report-form" data-mobile-form="report" data-dossier-id="${dossierId}" data-default-start="${escapeHtml(periodStart)}" data-default-end="${escapeHtml(periodEnd)}"><div class="mobile-app-report-form__fields"><p class="mobile-app-form-hint">${escapeHtml(activeDossier()?.name || '')}</p>${typeChoices}<p class="mobile-app-form-hint" data-report-description></p><div class="mobile-app-field"><label>Format</label><div class="mobile-app-report-types">${['pdf', 'xlsx'].map((format) => `<button type="button" data-mobile-report-format-choice="${format}" class="${format === 'pdf' ? 'is-selected' : ''}" aria-pressed="${format === 'pdf'}">${format === 'pdf' ? 'PDF' : 'Excel'}</button>`).join('')}</div><input type="hidden" name="format" value="pdf"></div><div class="mobile-app-field"><label data-report-period-label>Période</label><div class="mobile-app-report-types">${['all', 'year', 'month'].map((preset) => `<button type="button" data-report-period-preset="${preset}"></button>`).join('')}</div></div>${periodFields}${filters}${supplementalFields}</div><div class="mobile-app-report-form__footer"><p class="mobile-app-form-error" data-mobile-form-error role="alert" hidden></p><p class="mobile-app-form-hint">La génération se poursuit en arrière-plan. Vous serez averti dès que l’état sera prêt.</p>${writeButton('Lancer la génération')}</div></form>`;
     }
 
-    async function renderReportForm(message = '', formOpen = false) {
-        const [catalogResponse, historyResponse] = await Promise.all([
-            api(`/dossiers/${state.activeDossierId}/reports/catalog`),
-            api(`/dossiers/${state.activeDossierId}/reports`),
-        ]);
-        const data = catalogResponse.data || {};
-        const history = Array.isArray(historyResponse.data) ? historyResponse.data : [];
-        const form = mobileReportCreationForm(data, { formOpen });
-        const toggle = `<button class="mobile-app-primary-button mobile-app-report-create-toggle" type="button" data-report-create-toggle aria-expanded="${formOpen ? 'true' : 'false'}"><span>Générer un nouvel état</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9.5 5 5 5-5 1.4 1.4-6.4 6.4-6.4-6.4L7 9.5Z"/></svg></button>`;
-        renderFrame('États comptables', `${message ? `<div class="mobile-app-settings-message is-success" role="status">${escapeHtml(message)}</div>` : ''}${toggle}${form}<div class="mobile-app-section-title mt-3"><h2>États générés</h2></div>${mobileReportHistoryMarkup(history)}`, { tab: 'reports' });
-        syncMobileReportFields(app.querySelector('[data-mobile-form="report"]'));
+    async function renderReportForm(message = '') {
+        const response = await api(`/dossiers/${state.activeDossierId}/reports`);
+        const history = Array.isArray(response.data) ? response.data : [];
+        const button = `<button class="mobile-app-primary-button mobile-app-report-create-toggle" type="button" data-report-create-toggle><span>Générer un nouvel état</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z"/></svg></button>`;
+        renderFrame('États comptables', `${message ? `<div class="mobile-app-settings-message is-success" role="status">${escapeHtml(message)}</div>` : ''}${button}<div class="mobile-app-section-title mt-3"><h2>États générés</h2></div>${mobileReportHistoryMarkup(history)}`, { tab: 'reports' });
         scheduleMobileReportRefresh(history);
     }
 
     async function openQuickReportCreation() {
-        const response = await api(`/dossiers/${state.activeDossierId}/reports/catalog`);
-        const form = mobileReportCreationForm(response.data || {}, { formOpen: true, quickOrigin: true });
-        openQuickCreationDialog('report', 'Générer un état comptable', form);
-        const dialogForm = app.querySelector('[data-mobile-quick-creation="report"] [data-mobile-form="report"]');
-        syncMobileReportFields(dialogForm);
-        window.requestAnimationFrame(() => dialogForm?.querySelector('[data-mobile-report-type-choice]')?.focus({ preventScroll: true }));
+        const dossierId = state.activeDossierId;
+        openQuickCreationDialog('report', 'Générer un état comptable', '<div class="mobile-app-loading" role="status"><span>Chargement des états…</span></div>');
+        const preparing = app.querySelector('[data-mobile-quick-creation="report"]');
+        try {
+            const response = await api(`/dossiers/${dossierId}/reports/catalog`);
+            if (!preparing?.isConnected || state.activeDossierId !== dossierId) return;
+            const body = preparing.querySelector('.mobile-app-quick-actions-dialog__body');
+            body.innerHTML = mobileReportCreationForm(response.data || {}, dossierId);
+            enhanceMobileDateFields(body);
+            enhanceMobileTextFields(body);
+            const form = body.querySelector('form');
+            syncMobileReportFields(form);
+            window.requestAnimationFrame(() => form.querySelector('[data-mobile-report-type-choice]')?.focus({ preventScroll: true }));
+        } catch (error) {
+            if (preparing?.isConnected) preparing.querySelector('.mobile-app-quick-actions-dialog__body').innerHTML = `<p class="mobile-app-form-error" role="alert">${escapeHtml(error?.message || 'Les états sont momentanément indisponibles.')}</p><button type="button" class="mobile-app-primary-button" data-report-create-toggle>Réessayer</button>`;
+        }
     }
 
     async function renderContacts() {
@@ -9383,12 +9485,35 @@ if (root) {
     }
 
     async function submitMobileForm(form) {
-        if (state.readOnly) return;
+        if (state.readOnly || form.dataset.submitting === '1') return;
         const kind = form.dataset.mobileForm;
         if (kind === 'absence' && form.dataset.mobileAbsenceCanSubmit !== '1') return;
         const data = formDataObject(form);
         const quickOrigin = form.dataset.mobileQuickOrigin === 'home';
         const absenceListOrigin = kind === 'absence' && form.dataset.mobileQuickOrigin === 'absences';
+        if (kind === 'document_folder') {
+            data.name = String(data.name || '').trim();
+            if (!data.name) { creationFormError(form, 'Le nom du dossier est obligatoire.'); return; }
+            const parentId = Number(form.dataset.parentId) || 0;
+            if (parentId) data.parent_id = parentId;
+            const dossierId = Number(form.dataset.dossierId);
+            const personal = form.dataset.personal === '1';
+            const path = personal ? '/personal-documents/folders' : `/dossiers/${dossierId}/documents/folders`;
+            creationFormError(form);
+            setCreationFormBusy(form, true, 'Création…');
+            try {
+                await api(path, { method: 'POST', body: data, idempotencyKey: creationIdempotencyKey(form, data) });
+                form.closest('[data-mobile-quick-creation]')?.remove();
+                if (state.activeDossierId === dossierId && state.route === 'documents') {
+                    await navigate('documents', { ...state.routeParams, folder: String(parentId), q: '', scope: personal ? 'personal' : 'current' }, false);
+                }
+                showQuickCreationNotice('Dossier créé.');
+            } catch (error) {
+                creationFormError(form, error?.message || 'Le dossier n’a pas pu être créé.');
+                setCreationFormBusy(form, false, 'Créer le dossier');
+            }
+            return;
+        }
         if (kind === 'task') {
             const selectedDossierId = String(form.elements.dossier_id?.value ?? '').trim();
             data.dossier_id = selectedDossierId === '' ? null : Number(selectedDossierId);
@@ -9497,22 +9622,18 @@ if (root) {
             return;
         }
         if (kind === 'report') {
-            const button = form.querySelector('button[type="submit"]');
-            if (button) { button.disabled = true; button.textContent = 'Envoi…'; }
+            if (!validateMobileReport(form)) return;
+            creationFormError(form);
+            setCreationFormBusy(form, true, 'Envoi…');
+            const dossierId = Number(form.dataset.dossierId);
             try {
-                await api(`/dossiers/${state.activeDossierId}/reports`, { method: 'POST', body: data });
-                if (quickOrigin) {
-                    app.querySelector('[data-mobile-quick-creation="report"]')?.remove();
-                    await navigate('reports');
-                    showQuickCreationNotice('La génération est lancée. Vous recevrez une notification dès que l’état sera prêt.');
-                } else {
-                    await renderReportForm('La génération est lancée. Vous recevrez une notification dès que l’état sera prêt.');
-                }
+                await api(`/dossiers/${dossierId}/reports`, { method: 'POST', body: data, idempotencyKey: creationIdempotencyKey(form, data) });
+                form.closest('[data-mobile-quick-creation]')?.remove();
+                if (state.activeDossierId === dossierId) await navigate('reports');
+                showQuickCreationNotice('La génération est lancée. Vous recevrez une notification dès que l’état sera prêt.');
             } catch (error) {
-                if (quickOrigin) {
-                    if (button) { button.disabled = false; button.textContent = 'Lancer la génération'; }
-                    showQuickCreationNotice(error?.message || 'La génération n’a pas pu être lancée.');
-                } else renderError(error, state.route);
+                creationFormError(form, error?.message || 'La génération n’a pas pu être lancée.');
+                setCreationFormBusy(form, false, 'Lancer la génération');
             }
             return;
         }
@@ -11537,6 +11658,7 @@ if (root) {
             return;
         }
         if (event.target.closest('[data-mobile-quick-creation-close]')) {
+            if (event.target.closest('[data-mobile-quick-creation-close]').disabled) return;
             const dialog = app.querySelector('[data-mobile-quick-creation]');
             const reportId = Number(dialog?.dataset.mobileExpenseReportId) || 0;
             dialog?.remove();
@@ -11628,14 +11750,31 @@ if (root) {
             }, 'absences');
             return;
         }
+        const folderCreate = event.target.closest('[data-mobile-document-folder-create]');
+        if (folderCreate) { openDocumentFolderCreation(folderCreate); return; }
         const reportCreateToggle = event.target.closest('[data-report-create-toggle]');
-        if (reportCreateToggle) {
-            const form = app.querySelector('[data-mobile-form="report"]');
-            if (form) {
-                form.hidden = !form.hidden;
-                reportCreateToggle.setAttribute('aria-expanded', form.hidden ? 'false' : 'true');
-                if (!form.hidden) window.requestAnimationFrame(() => form.querySelector('[data-mobile-report-type-choice]')?.focus({ preventScroll: true }));
-            }
+        if (reportCreateToggle) { await openQuickReportCreation(); return; }
+        const formatChoice = event.target.closest('[data-mobile-report-format-choice]');
+        if (formatChoice) {
+            const form = formatChoice.closest('form');
+            form.elements.format.value = formatChoice.dataset.mobileReportFormatChoice;
+            form.querySelectorAll('[data-mobile-report-format-choice]').forEach((button) => {
+                const selected = button === formatChoice;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', String(selected));
+            });
+            return;
+        }
+        const preset = event.target.closest('[data-report-period-preset]');
+        if (preset) {
+            const form = preset.closest('form');
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const value = preset.dataset.reportPeriodPreset;
+            setMobileReportDate(form.elements.period_start, value === 'all' ? form.dataset.defaultStart : `${today.slice(0, 4)}-${value === 'year' ? '01' : today.slice(5, 7)}-01`);
+            setMobileReportDate(form.elements.period_end, value === 'all' ? form.dataset.defaultEnd : today);
+            setMobileReportDate(form.elements.as_of, form.elements.period_end.value);
+            creationFormError(form);
             return;
         }
         const reportTypeChoice = event.target.closest('[data-mobile-report-type-choice]');
@@ -11651,7 +11790,7 @@ if (root) {
         if (reportSelectionAction) {
             const selection = reportSelectionAction.closest('[data-report-selection]');
             const checked = reportSelectionAction.hasAttribute('data-report-select-all');
-            selection?.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((checkbox) => { checkbox.checked = checked; });
+            selection?.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((checkbox) => { if (!checkbox.closest('label').hidden) checkbox.checked = checked; });
             syncMobileReportSelectionActions(reportSelectionAction.closest('[data-mobile-form="report"]'));
             return;
         }
@@ -11907,6 +12046,7 @@ if (root) {
     });
 
     app.addEventListener('input', (event) => {
+        if (event.target.matches('[data-report-selection-search]')) { syncMobileReportSelectionActions(event.target.closest('form')); return; }
         const noteBody = event.target.closest('[data-mobile-notes-body]');
         if (noteBody instanceof HTMLTextAreaElement) {
             const scope = String(noteBody.dataset.mobileNotesBody || '');
@@ -12439,6 +12579,8 @@ if (root) {
             renderMobileNotesContent();
             return;
         }
+        const dateForm = event.target.closest('[data-mobile-form="report"]');
+        if (dateForm && event.target.matches('[name="period_start"], [name="period_end"], [name="as_of"]')) syncMobileReportSubmitState(dateForm);
         const reportSelection = event.target.closest('[data-report-selection] input[type="checkbox"]');
         if (reportSelection) {
             syncMobileReportSelectionActions(reportSelection.closest('[data-mobile-form="report"]'));

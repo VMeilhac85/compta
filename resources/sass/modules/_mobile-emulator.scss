@@ -7332,3 +7332,113 @@ html[data-theme='dark'] [data-mobile-emulator] ::-webkit-scrollbar-thumb {
   border: 0;
   background: var(--surface-muted, #f4f7f9);
 }
+
+// Documents and the shared report dialog use the same mobile design tokens.
+.mobile-app-document-create-row {
+    display: flex;
+    justify-content: flex-end;
+    button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 10px;
+        color: var(--mobile-primary);
+        background: transparent;
+        font: inherit;
+        font-size: 14px;
+        cursor: pointer;
+        &:hover, &:focus-visible { background: var(--mobile-primary-soft); }
+        &:disabled { opacity: .45; cursor: default; }
+    }
+    svg { width: 20px; height: 20px; fill: currentColor; }
+}
+.mobile-app-form-hint { margin: 0; color: var(--mobile-muted); font-size: 12px; line-height: 16px; }
+.mobile-app-form-error { margin: 0; color: var(--mobile-danger); font-size: 12px; line-height: 16px; }
+[data-mobile-quick-creation="document-folder"] {
+    .mobile-app-quick-actions-dialog { width: min(100%, 420px); }
+    .mobile-app-form-panel { padding: 0; border: 0; box-shadow: none; gap: 12px; }
+}
+[data-mobile-quick-creation="report"] {
+    padding: 8px;
+    .mobile-app-quick-actions-dialog {
+        width: 100%;
+        height: min(720px, 100%);
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .mobile-app-quick-actions-dialog__body {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        padding: 16px;
+    }
+    .mobile-app-report-form {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        padding: 0;
+        margin: 0;
+        gap: 12px;
+        border: 0;
+        box-shadow: none;
+        background: transparent;
+    }
+    .mobile-app-report-form__fields {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        flex: 1;
+    }
+    .mobile-app-report-form__footer { display: grid; gap: 12px; flex-shrink: 0; }
+    .mobile-app-report-form__footer .mobile-app-primary-button { width: 100%; }
+    .mobile-app-report-types { gap: 6px; }
+    .mobile-app-report-types button { font-size: 12px; font-weight: 500; }
+    .mobile-app-report-filters {
+        display: block;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        &[hidden] { display: none; }
+        summary { padding: 10px 0; color: var(--mobile-primary); font-size: 14px; cursor: pointer; }
+        .mobile-app-task-switch { padding: 4px 12px; }
+    }
+    .mobile-app-report-selection { max-height: none; overflow: visible; flex-shrink: 0; border: 0; border-radius: 0; }
+    .mobile-app-report-selection > strong { font-size: 12px; font-weight: 500; color: var(--mobile-muted); }
+    .mobile-app-report-selection > .mobile-app-form-hint { margin: 4px 0; }
+    .mobile-app-report-selection__toolbar { position: static; justify-content: flex-end; padding: 2px 8px; background: var(--mobile-surface); }
+    .mobile-app-report-selection__items { max-height: 220px; overflow-y: auto; overscroll-behavior: contain; }
+    .mobile-app-report-selection__items label[hidden] { display: none; }
+    .mobile-app-report-selection__items > p { padding: 12px; }
+}
+
+[data-mobile-quick-creation="report"] {
+    .mobile-app-report-form__fields > * { flex-shrink: 0; }
+    .mobile-app-report-filters summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        list-style: none;
+        &::-webkit-details-marker { display: none; }
+        &::after { content: ''; width: 8px; height: 8px; margin-right: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+    }
+    .mobile-app-report-filters[open] summary::after { transform: rotate(225deg); }
+}
+
+[data-mobile-quick-creation="document-folder"] .mobile-app-field input { height: 48px; min-height: 48px; }
+[data-mobile-quick-creation="report"] {
+    .mobile-app-report-types button { min-height: 32px; padding: 4px 12px; border-radius: 10px; font-size: 14px; line-height: 20px; }
+    [data-report-selection-search] { height: 48px; min-height: 48px; font-size: 14px; }
+    .mobile-app-report-selection__items label { min-height: 48px; padding: 0 8px; font-size: 14px; line-height: 20px; }
+    .mobile-app-report-selection__toolbar button { min-height: 40px; font-size: 14px; line-height: 20px; font-weight: 500; }
+}

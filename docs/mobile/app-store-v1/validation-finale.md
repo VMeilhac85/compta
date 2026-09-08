@@ -1,7 +1,14 @@
 # Validation de la première publication Maison Pilote
 
-Version proposée : **1.129, build 129**. Le téléchargement est proposé gratuit,
+Version proposée : **1.131, build 131**. Le téléchargement est proposé gratuit,
 en France, avec une fiche française et un compte Maison Pilote existant.
+
+**Préalable non résolu : Apple Watch.** L’archive contient l’application Watch,
+mais sa liaison et une capture représentative n’ont pas pu être validées.
+Le dossier n’est donc pas encore au stade du seul accord final. Résoudre ce
+point, ou préparer une nouvelle archive iPhone/iPad si le propriétaire choisit
+ce périmètre, avant toute demande de transmission. Voir le
+[diagnostic et les preuves](blocage-apple-watch.md).
 
 ## Contenu de la décision
 
@@ -23,12 +30,12 @@ La décision d’accepter l’application et le délai de revue appartiennent à
 ## Exécution après autorisation
 
 Le binaire à transmettre est l’IPA déjà signée et contrôlée du dossier privé
-`storage/app/private/mobile/app-store/1.129-129`. Son empreinte exacte figure
+`storage/app/private/mobile/app-store/v1-1.131-131`. Son empreinte exacte figure
 dans `preparation-result.json`. Une nouvelle compilation ne doit pas remplacer
 silencieusement ce binaire approuvé.
 
 Après l’envoi autorisé, attendre le traitement Apple, vérifier son résultat,
-renseigner la fiche et ses médias, associer le build 129 et le compte de revue,
+renseigner la fiche et ses médias, associer le build 131 et le compte de revue,
 puis soumettre uniquement selon la portée demandée. Une erreur de validation
 Apple ou une demande du contrôleur doit être traitée et rapportée avant de
 considérer la publication terminée.

@@ -1,7 +1,14 @@
 # Maison Pilote - préparation de la première publication App Store
 
-Version proposée : **1.129 (129)**. « V1 » désigne la première publication
+Version proposée : **1.131 (131)**. « V1 » désigne la première publication
 publique ; le numéro reste cohérent avec les versions mobiles déjà produites.
+
+**État : archive signée préparée, soumission encore bloquée par l’Apple Watch.**
+Les quatre captures iPhone et iPad sont retenues. La montre reste sur
+« Vérification de l’accès… » après 70 secondes et sa capture a été écartée.
+Il reste donc un travail technique avant de pouvoir ne demander que la
+validation finale. Le [diagnostic Watch](blocage-apple-watch.md) précise les
+preuves conservées et les suites possibles. Aucune transmission Apple n’a eu lieu.
 
 ## Contenu à valider
 
@@ -12,6 +19,9 @@ publique ; le numéro reste cohérent avec les versions mobiles déjà produites
 - [Questionnaire de classification au format API](age-rating.json).
 - [Installation et essais sur iPhone](tester-sur-iphone.md).
 - [Décision finale et portée de l’autorisation](validation-finale.md).
+- [Résultats et limites des validations](rapport-validation.md).
+- [Blocage Apple Watch avant soumission](blocage-apple-watch.md).
+- [Requêtes de fiche préparées, identifiants Apple et binaire à transmettre](envoi-prepare.json).
 
 Proposition de diffusion : téléchargement gratuit, France, langue française,
 compte Maison Pilote existant requis, catégories Professionnel et Productivité.
@@ -35,6 +45,12 @@ utilise également le domaine canonique et conserve les retours de connexion
 historiques. Une ancienne coque iOS peut nécessiter une nouvelle version
 TestFlight, car sa règle native de navigation n’est pas modifiable côté serveur.
 
+Un second blocage provenait de deux contrôles masqués placés hors de leur
+conteneur dans la page iOS. Leur rattachement a été corrigé pour respecter le
+même contrat que les deux émulateurs. Le parcours Safari connexion puis
+Documents a été validé après correction, ainsi que ce parcours dans les
+simulateurs natifs iPhone et iPad.
+
 ## Construction et conservation
 
 Le workflow `.github/workflows/ios-prepare.yml`, sur la branche de préparation
@@ -51,6 +67,14 @@ Les captures proviennent de l’application native dans les simulateurs Apple.
 Un seul parcours automatisé de connexion puis de consultation de Documents
 produit les captures iPhone et iPad. Il est isolé des cibles distribuées et ne
 figure pas dans l’IPA. Le compte utilisé n’accède qu’au dossier fictif « Démo GRH ».
+
+La version 1.131 intègre les évolutions Documents et États produites en parallèle.
+Son archive signée provient du commit `e0595ca0970e74d3ab413a3682528462db44960d`.
+Le parcours de capture utilise la coque 1.129 et le site vivant en 1.131 : les
+38 fichiers natifs des deux versions ont été comparés, et seuls les numéros
+de version et de build diffèrent. Les deux jeux de sources et leur contrôle
+de correspondance sont conservés. Les captures ne sont pas présentées comme
+issues d’un binaire numéroté 131.
 
 Les fichiers signés sont des fichiers de distribution App Store. Ils ne
 s’installent pas directement sur un iPhone depuis un lien de téléchargement.
@@ -69,6 +93,11 @@ serveur Apple. Cette dernière ne peut être obtenue avant la transmission réel
 
 ## Dernières étapes après décision du propriétaire
 
+Préalable technique : résoudre et valider la liaison Watch, puis produire une
+capture représentative. Si le propriétaire décide de réserver cette première
+publication à l’iPhone et à l’iPad, préparer une nouvelle archive signée sans
+Watch et adapter la fiche avant de lui présenter le binaire à approuver.
+
 1. Valider les textes, les captures, le tarif, les territoires et les déclarations
    de confidentialité et de classification préparés dans ce dossier.
 2. Dans le compte Apple, confirmer si nécessaire les contrats et le statut
@@ -77,7 +106,7 @@ serveur Apple. Cette dernière ne peut être obtenue avant la transmission réel
    Connect à partir des réponses préparées.
 3. Sur demande explicite d’envoi : transmettre l’IPA contrôlée, conserver son
    numéro de build et son empreinte, attendre le traitement Apple, renseigner la
-   version publique 1.129 et ses médias, associer le build et les informations de
+   version publique 1.131 et ses médias, associer le build et les informations de
    revue, puis effectuer la soumission autorisée.
 4. La décision d’App Review appartient à Apple. Si le propriétaire a autorisé la
    publication après approbation, appliquer ce mode ; sinon conserver la version
