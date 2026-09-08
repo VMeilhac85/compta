@@ -50,7 +50,8 @@ from pathlib import Path
 root=Path(os.environ['CAPTURE_TEMP'])
 out=Path(os.environ['IOS_PREPARATION_DIRECTORY'])/'screenshots/fr-FR'
 def run(*args, **kwargs):
-    return subprocess.check_output(list(args), text=True, **kwargs).strip()
+    print('Capture native :', ' '.join(args), flush=True)
+    return subprocess.check_output(list(args), text=True, timeout=360, **kwargs).strip()
 def sim(*args, **kwargs): return run('xcrun','simctl',*args, **kwargs)
 catalog=json.loads(sim('list','--json'))
 runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.iOS-' in r['identifier'])
@@ -74,8 +75,10 @@ for label, dtype in [('iphone',iphone),('ipad',ipad)]:
     environment=dict(os.environ)
     environment['SIMCTL_CHILD_IOS_SCREENSHOT_SESSION']=environment.pop('IOS_SCREENSHOT_SESSION')
     sim('launch',device,'expert.meilhac.maisonpilote',env=environment)
-    time.sleep(3)
     container=Path(sim('get_app_container',device,'expert.meilhac.maisonpilote','data'))
+    for _ in range(40):
+        if (container/'Documents/seed-status.json').exists(): break
+        time.sleep(1)
     status=json.loads((container/'Documents/seed-status.json').read_text())
     assert status['status']==0, 'Échec du chargement de la session de démonstration.'
     sim('terminate',device,'expert.meilhac.maisonpilote')
