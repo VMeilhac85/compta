@@ -40,7 +40,6 @@ xcodebuild \
     -project "$PROJECT_DIR/MaisonPiloteIOS.xcodeproj" \
     -scheme MaisonPilote \
     -configuration "$CONFIGURATION" \
-    -sdk "$SDK" \
     -destination "$DESTINATION" \
     -derivedDataPath "$DERIVED_DATA" \
     "MAISON_PILOTE_BUNDLE_IDENTIFIER=$BUNDLE_IDENTIFIER" \
