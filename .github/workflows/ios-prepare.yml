@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: maison-pilote-ios-preparation
+  group: maison-pilote-ios-preparation-dossiers-etats-130
   cancel-in-progress: false
 
 jobs:
