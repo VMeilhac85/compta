@@ -113,7 +113,7 @@ Le shell injecte aussi avant le runtime sa version réellement installée :
 
 ```js
 window.__MAISON_PILOTE_IOS_APP__;
-// { versionCode: 112, versionName: '1.112' }
+// { versionCode: 124, versionName: '1.124' }
 ```
 
 Le runtime doit utiliser cette valeur locale pour décider si une mise à jour est
@@ -225,7 +225,7 @@ processus WebKit peut reprendre au `next_offset` renvoyé par un nouvel appel
 ## App Apple Watch
 
 Le projet embarque les cibles `MaisonPiloteWatch` et
-`MaisonPiloteWatchExtension`, version **1.112 (112)** comme l’app iPhone et
+`MaisonPiloteWatchExtension`, version **1.124 (124)** comme l’app iPhone et
 watchOS **9.4** minimum. L’écran SwiftUI reprend le parcours Wear OS : contrôle
 de disponibilité admin, dictée ou saisie système, transmission, suivi toutes les
 3 secondes, modèle et niveau de raisonnement, réponse et arrêt d’un traitement
@@ -322,7 +322,7 @@ directement. Sur Linux, `scripts/release-github.sh` déclenche automatiquement l
 workflow GitHub hébergé sur `macos-26`, attend son résultat puis reprend le
 contrôle côté serveur. La commande suivante calcule automatiquement une version
 au moins égale à
-**1.112 (112)**, construit et téléverse la release. Elle ne l’active qu’après
+**1.124 (124)**, construit et téléverse la release. Elle ne l’active qu’après
 vérification App Store Connect et disponibilité réelle dans le groupe public :
 
 ```bash
@@ -344,8 +344,8 @@ build sans le téléverser une deuxième fois, depuis macOS ou Linux :
 ```bash
 php artisan mobile:ios:release \
   --resume-provider-build-id=BUILD_ID \
-  --version-name=1.112 \
-  --build-number=112 \
+  --version-name=1.124 \
+  --build-number=123 \
   --channel=beta \
   --notes="Première version iOS de test"
 ```

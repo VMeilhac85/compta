@@ -2,9 +2,18 @@ import Foundation
 
 enum AppEnvironment {
     static let defaultHost = "maisonpilote.meilhac.expert"
+    static let defaultCanonicalHost = "maisonpilote.fr"
 
     static var trustedHost: String {
         configuredValue("MaisonPiloteURLHost")?.lowercased() ?? defaultHost
+    }
+
+    static var canonicalHost: String {
+        configuredValue("MaisonPiloteCanonicalURLHost")?.lowercased() ?? defaultCanonicalHost
+    }
+
+    static var trustedHosts: Set<String> {
+        [trustedHost, canonicalHost]
     }
 
     static var initialURL: URL {
@@ -32,7 +41,7 @@ enum AppEnvironment {
 
     static func isTrusted(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https",
-              url.host?.lowercased() == trustedHost,
+              url.host.map({ trustedHosts.contains($0.lowercased()) }) == true,
               url.user == nil,
               url.password == nil else { return false }
         return url.port == nil || url.port == 443

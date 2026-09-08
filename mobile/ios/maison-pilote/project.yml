@@ -57,6 +57,7 @@ targets:
         LSApplicationCategoryType: public.app-category.business
         MaisonPiloteAppGroupIdentifier: "$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)"
         MaisonPiloteURLHost: "$(MAISON_PILOTE_URL_HOST)"
+        MaisonPiloteCanonicalURLHost: "$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)"
         MaisonPiloteURLPath: "$(MAISON_PILOTE_URL_PATH)"
         MaisonPiloteURLScheme: "$(MAISON_PILOTE_URL_SCHEME)"
         MaisonPiloteCustomURLScheme: "$(MAISON_PILOTE_CUSTOM_URL_SCHEME)"
@@ -87,6 +88,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         WKAppBoundDomains:
           - "$(MAISON_PILOTE_URL_HOST)"
+          - "$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)"
     entitlements:
       path: MaisonPilote/Resources/MaisonPilote.entitlements
     configFiles:
