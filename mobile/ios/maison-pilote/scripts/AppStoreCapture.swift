@@ -2,6 +2,15 @@
 import XCTest
 
 final class AppStoreCapture: XCTestCase {
+    override func tearDown() {
+        if testRun?.hasSucceeded == false {
+            let family = ProcessInfo.processInfo.environment["IOS_CAPTURE_FAMILY"] ?? "iphone"
+            attachScreen(named: family + "-diagnostic")
+            print(String(XCUIApplication(bundleIdentifier: "expert.meilhac.maisonpilote").debugDescription.prefix(12000)))
+        }
+        super.tearDown()
+    }
+
     func testCaptureScreens() throws {
         continueAfterFailure = false
         let environment = ProcessInfo.processInfo.environment
@@ -11,6 +20,7 @@ final class AppStoreCapture: XCTestCase {
         let app = XCUIApplication(bundleIdentifier: "expert.meilhac.maisonpilote")
         app.launchArguments = ["-AppleLanguages", "(fr)", "-AppleLocale", "fr_FR"]
         app.launch()
+        Thread.sleep(forTimeInterval: 3)
         let identifier = app.webViews.textFields.firstMatch
         XCTAssertTrue(identifier.waitForExistence(timeout: 90), "Écran de connexion indisponible")
         identifier.tap()

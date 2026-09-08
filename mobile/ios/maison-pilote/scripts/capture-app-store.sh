@@ -25,6 +25,10 @@ PYTHON
 }
 trap cleanup EXIT
 
+curl --connect-timeout 10 --max-time 30 --retry 1 -fsS -o /dev/null \
+    -w 'Accès au site depuis macOS : HTTP %{http_code}, adresse %{remote_ip}\n' \
+    'https://maisonpilote.fr/api/application-ios/test?native=1'
+
 python3 - <<'PYTHON'
 import json, os
 from pathlib import Path
@@ -64,6 +68,10 @@ runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable'
 watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
 find_type=lambda name:next(t for t in catalog['devicetypes'] if t['name']==name)
 original_run=next((root/'DerivedData/Build/Products').glob('*.xctestrun'))
+for product in (root/'DerivedData/Build/Products/Debug-iphonesimulator').glob('*.app'):
+    info=plistlib.loads((product/'Info.plist').read_bytes())
+    if info.get('CFBundleIdentifier')=='expert.meilhac.maisonpilote':
+        print('Configuration native du simulateur :',json.dumps({key:info.get(key) for key in ['CFBundleVersion','MaisonPiloteURLHost','MaisonPiloteURLPath','WKAppBoundDomains']}),flush=True)
 records=[]
 for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type('iPad Pro 13-inch (M4)'))]:
     device=sim('create','Maison Pilote App Store '+family,dtype['identifier'],runtime)
@@ -84,9 +92,13 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         'TEST_RUNNER_IOS_CAPTURE_FAMILY':family,
     })
     result_path=root/f'{family}.xcresult'
-    run('xcodebuild','test-without-building','-xctestrun',str(original_run),'-destination',f'platform=iOS Simulator,id={device}',
-        '-resultBundlePath',str(result_path),'-parallel-testing-enabled','NO','-maximum-concurrent-test-simulator-destinations','1',
-        '-only-testing:MaisonPiloteCapture/AppStoreCapture/testCaptureScreens',timeout=600,env=test_environment)
+    test_failure=None
+    try:
+        run('xcodebuild','test-without-building','-xctestrun',str(original_run),'-destination',f'platform=iOS Simulator,id={device}',
+            '-resultBundlePath',str(result_path),'-parallel-testing-enabled','NO','-maximum-concurrent-test-simulator-destinations','1',
+            '-only-testing:MaisonPiloteCapture/AppStoreCapture/testCaptureScreens',timeout=600,env=test_environment)
+    except subprocess.CalledProcessError as error:
+        test_failure=error
     attachments=root/f'{family}-attachments'
     run('xcrun','xcresulttool','export','attachments','--path',str(result_path),'--output-path',str(attachments))
     exported=json.loads((attachments/'manifest.json').read_text())
@@ -98,11 +110,17 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
             for child in value:yield from attachments_in(child)
     for attachment in attachments_in(exported):
         label=attachment['suggestedHumanReadableName']
+        if family+'-diagnostic' in label:
+            diagnostic_directory=out.parent/'diagnostics'
+            diagnostic_directory.mkdir(exist_ok=True)
+            (diagnostic_directory/(family+'-diagnostic.png')).write_bytes((attachments/attachment['exportedFileName']).read_bytes())
         for screen in ['01-accueil','02-documents']:
             if family+'-'+screen in label:
                 filename=family+'-'+screen+'.png'
                 (out/filename).write_bytes((attachments/attachment['exportedFileName']).read_bytes())
                 records.append({'filename':filename,'device':dtype['name'],'origin':'native-ios-simulator'})
+    if test_failure:
+        raise RuntimeError('Le parcours natif a échoué ; consulter la capture de diagnostic.') from test_failure
     assert (out/f'{family}-01-accueil.png').exists() and (out/f'{family}-02-documents.png').exists(), 'Captures de connexion et Documents absentes.'
     if watch:
         sim('launch',device,'expert.meilhac.maisonpilote')

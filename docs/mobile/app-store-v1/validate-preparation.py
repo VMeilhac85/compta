@@ -33,6 +33,8 @@ with zipfile.ZipFile(ipa) as archive:
     assert info["CFBundleShortVersionString"] == metadata["version_name"]
     assert info["CFBundleVersion"] == str(metadata["build_number"])
     assert info["ITSAppUsesNonExemptEncryption"] is False
+    assert info["MaisonPiloteURLHost"] == "maisonpilote.fr"
+    assert {"maisonpilote.fr", "maisonpilote.meilhac.expert"}.issubset(info["WKAppBoundDomains"])
     assert not any(any(marker in name for marker in ("SessionSeed", "screenshot-session", "AppStoreCapture", ".xctest/"))
                    for name in archive.namelist())
 
