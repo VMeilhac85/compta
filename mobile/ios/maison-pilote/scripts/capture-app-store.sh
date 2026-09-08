@@ -9,18 +9,29 @@ PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 CAPTURE_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/maison-pilote-captures.XXXXXX")"
 export CAPTURE_TEMP
 cleanup() {
-    if [[ -f "$CAPTURE_TEMP/devices.txt" ]]; then
-        while IFS= read -r device; do
-            xcrun simctl shutdown "$device" >/dev/null 2>&1 || true
-            xcrun simctl delete "$device" >/dev/null 2>&1 || true
-        done < "$CAPTURE_TEMP/devices.txt"
-    fi
-    rm -rf -- "$CAPTURE_TEMP"
+    python3 - <<'PYTHON'
+import os, subprocess, shutil
+from pathlib import Path
+root=Path(os.environ['CAPTURE_TEMP'])
+if (root/'devices.txt').exists():
+    for device in (root/'devices.txt').read_text().splitlines():
+        for action in ['shutdown','delete']:
+            try: subprocess.run(['xcrun','simctl',action,device],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=20)
+            except subprocess.TimeoutExpired: pass
+shutil.rmtree(root,ignore_errors=True)
+PYTHON
 }
 trap cleanup EXIT
 IOS_DERIVED_DATA_PATH="$CAPTURE_TEMP/DerivedData" "$SCRIPT_DIR/build.sh"
-APP_PATH="$CAPTURE_TEMP/DerivedData/Build/Products/Debug-iphonesimulator/MaisonPilote.app"
-[[ -d "$APP_PATH" ]]
+APP_PATH="$(python3 - <<'PYTHON'
+import os, plistlib
+from pathlib import Path
+root=Path(os.environ['CAPTURE_TEMP'])/'DerivedData/Build/Products/Debug-iphonesimulator'
+apps=[p for p in root.glob('*.app') if (p/'Info.plist').is_file() and plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote']
+assert len(apps)==1, 'Le binaire iOS de capture doit être identifié sans ambiguïté.'
+print(apps[0])
+PYTHON
+)"
 export APP_PATH
 mkdir -p "$IOS_PREPARATION_DIRECTORY/screenshots/fr-FR"
 

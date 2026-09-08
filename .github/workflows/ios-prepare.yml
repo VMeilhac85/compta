@@ -113,10 +113,6 @@ jobs:
         run: |
           chmod +x mobile/ios/maison-pilote/scripts/*.sh
           mobile/ios/maison-pilote/scripts/prepare-app-store.sh
-      - name: Capturer les écrans natifs avec les seules données de démonstration
-        env:
-          IOS_SCREENSHOT_SESSION: ${{ secrets.IOS_SCREENSHOT_SESSION }}
-        run: mobile/ios/maison-pilote/scripts/capture-app-store.sh
       - name: Emballer les sources de l’archive
         if: always()
         run: |
@@ -151,3 +147,30 @@ jobs:
           if [[ -n "${IOS_SIGNING_KEYCHAIN:-}" && -f "$IOS_SIGNING_KEYCHAIN" ]]; then
             security delete-keychain "$IOS_SIGNING_KEYCHAIN"
           fi
+
+  screenshots:
+    needs: prepare
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - name: Récupérer les mêmes sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Préparer le simulateur
+        run: |
+          echo "IOS_PREPARATION_DIRECTORY=$RUNNER_TEMP/maison-pilote-app-store" >> "$GITHUB_ENV"
+          xcodebuild -version
+          if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
+          chmod +x mobile/ios/maison-pilote/scripts/*.sh
+          mobile/ios/maison-pilote/scripts/bootstrap.sh
+      - name: Capturer les écrans natifs avec les seules données de démonstration
+        env:
+          IOS_SCREENSHOT_SESSION: ${{ secrets.IOS_SCREENSHOT_SESSION }}
+        run: mobile/ios/maison-pilote/scripts/capture-app-store.sh
+      - name: Conserver les captures
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: maison-pilote-app-store-screenshots
+          path: ${{ runner.temp }}/maison-pilote-app-store/screenshots
+          retention-days: 14
+          if-no-files-found: warn
