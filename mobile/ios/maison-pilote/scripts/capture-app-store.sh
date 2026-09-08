@@ -61,6 +61,13 @@ records=[]
 for label, dtype in [('iphone',iphone),('ipad',ipad)]:
     device=sim('create','Maison Pilote App Store '+label,dtype['identifier'],runtime)
     with (root/'devices.txt').open('a') as stream: stream.write(device+'\n')
+    watch=None
+    if label=='iphone':
+        watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
+        watch_type=next(t for t in types if 'Apple Watch Series 11 (46mm)' in t['name'] or 'Apple Watch Series 10 (46mm)' in t['name'])
+        watch=sim('create','Maison Pilote App Store Watch',watch_type['identifier'],watch_runtime)
+        with (root/'devices.txt').open('a') as stream: stream.write(watch+'\n')
+        sim('pair',watch,device)
     sim('boot',device);sim('bootstatus',device,'-b')
     sim('status_bar',device,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100')
     sim('install',device,str(root/'SessionSeed.app'))
@@ -77,11 +84,22 @@ for label, dtype in [('iphone',iphone),('ipad',ipad)]:
     sim('launch',device,'expert.meilhac.maisonpilote','-AppleLanguages','(fr)','-AppleLocale','fr_FR')
     time.sleep(20)
     for number, (route,name) in enumerate([('accueil','accueil'),('documents','documents')],1):
-        sim('openurl',device,'https://maisonpilote.fr/app/'+route)
+        sim('openurl',device,'maisonpilote://app/'+route)
         time.sleep(8)
         filename=f'{label}-{number:02d}-{name}.png'
         sim('io',device,'screenshot','--type=png',str(out/filename))
         records.append({'filename':filename,'device':dtype['name'],'origin':'native-ios-simulator','route':route})
+    if watch:
+        sim('boot',watch);sim('bootstatus',watch,'-b')
+        watch_app=Path(os.environ['APP_PATH'])/'Watch/MaisonPiloteWatch.app'
+        if not watch_app.exists():
+            watch_app=next((root/'DerivedData/Build/Products/Debug-watchsimulator').glob('*.app'))
+        sim('install',watch,str(watch_app))
+        sim('launch',watch,'expert.meilhac.maisonpilote.watchkitapp','-AppleLanguages','(fr)','-AppleLocale','fr_FR')
+        time.sleep(20)
+        sim('io',watch,'screenshot','--type=png',str(out/'watch-01-assistant.png'))
+        records.append({'filename':'watch-01-assistant.png','device':watch_type['name'],'origin':'native-watchos-simulator'})
+        sim('shutdown',watch)
     sim('shutdown',device)
 (out.parent/'capture-manifest.json').write_text(json.dumps(records,ensure_ascii=False,indent=2)+'\n')
 PYTHON

@@ -19,10 +19,11 @@ jobs:
     timeout-minutes: 55
     env:
       IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
-      IOS_PREPARATION_DIRECTORY: ${{ runner.temp }}/maison-pilote-app-store
     steps:
       - name: Récupérer les sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Préparer le répertoire privé
+        run: echo "IOS_PREPARATION_DIRECTORY=$RUNNER_TEMP/maison-pilote-app-store" >> "$GITHUB_ENV"
       - name: Préparer XcodeGen
         run: |
           xcodebuild -version
@@ -137,7 +138,6 @@ jobs:
         if: always()
         shell: bash
         run: |
-          rm -f -- "$RUNNER_TEMP/AuthKey_${IOS_APP_STORE_CONNECT_API_KEY_ID}.p8"
           rm -f -- "$RUNNER_TEMP/maison-pilote-distribution.p12"
           for profile_path in \
             "${IOS_APP_PROVISIONING_PROFILE_SPECIFIER_PATH:-}" \
