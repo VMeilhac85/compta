@@ -89,7 +89,12 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         watch=sim('create','Maison Pilote App Store Watch',watch_type['identifier'],watch_runtime)
         with (root/'devices.txt').open('a') as stream:stream.write(watch+'\n')
         pair=sim('pair',watch,device)
-        sim('pair_activate',pair)
+        try:
+            sim('pair_activate',pair)
+        except subprocess.CalledProcessError as error:
+            # simctl pair active déjà la première paire ; EALREADY est attendu.
+            if error.returncode != 37:
+                raise
     sim('boot',device);sim('bootstatus',device,'-b')
     sim('status_bar',device,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100')
     # Contrat xcodebuild : TEST_RUNNER_ transmet la variable au processus XCTest.
