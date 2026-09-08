@@ -33,7 +33,8 @@ with zipfile.ZipFile(ipa) as archive:
     assert info["CFBundleShortVersionString"] == metadata["version_name"]
     assert info["CFBundleVersion"] == str(metadata["build_number"])
     assert info["ITSAppUsesNonExemptEncryption"] is False
-    assert not any("SessionSeed" in name or "screenshot-session" in name for name in archive.namelist())
+    assert not any(any(marker in name for marker in ("SessionSeed", "screenshot-session", "AppStoreCapture", ".xctest/"))
+                   for name in archive.namelist())
 
 sizes = {
     "iphone": {(1260, 2736), (1290, 2796), (1320, 2868)},

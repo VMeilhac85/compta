@@ -11,6 +11,7 @@ publique ; le numéro reste cohérent avec les versions mobiles déjà produites
 - [Confidentialité, classification et accès de revue](confidentialite-et-revue.md).
 - [Questionnaire de classification au format API](age-rating.json).
 - [Installation et essais sur iPhone](tester-sur-iphone.md).
+- [Décision finale et portée de l’autorisation](validation-finale.md).
 
 Proposition de diffusion : téléchargement gratuit, France, langue française,
 compte Maison Pilote existant requis, catégories Professionnel et Productivité.
@@ -39,9 +40,7 @@ Il exporte localement : **aucun binaire n’est envoyé à App Store Connect**.
 Les captures proviennent de l’application native dans les simulateurs Apple.
 Un seul parcours automatisé de connexion puis de consultation de Documents
 produit les captures iPhone et iPad. Il est isolé des cibles distribuées et ne
-figure pas dans l’IPA. Ce parcours a été nécessaire après l’échec des tentatives
-de préparation plus légères de la session du simulateur. Le compte utilisé
-n’accède qu’au dossier fictif « Démo GRH ».
+figure pas dans l’IPA. Le compte utilisé n’accède qu’au dossier fictif « Démo GRH ».
 
 Les fichiers signés sont des fichiers de distribution App Store. Ils ne
 s’installent pas directement sur un iPhone depuis un lien de téléchargement.

@@ -76,20 +76,17 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         sim('pair',watch,device)
     sim('boot',device);sim('bootstatus',device,'-b')
     sim('status_bar',device,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100')
-    payload=plistlib.loads(original_run.read_bytes())
-    for configuration in payload.get('TestConfigurations',[]):
-        for target in configuration.get('TestTargets',[]):
-            target.setdefault('EnvironmentVariables',{}).update({
-                'IOS_SCREENSHOT_LOGIN':os.environ['IOS_SCREENSHOT_LOGIN'],
-                'IOS_SCREENSHOT_PASSWORD':os.environ['IOS_SCREENSHOT_PASSWORD'],
-                'IOS_CAPTURE_FAMILY':family,
-            })
-    run_file=original_run.with_name(f'{family}.xctestrun')
-    run_file.write_bytes(plistlib.dumps(payload));run_file.chmod(0o600)
+    # Contrat xcodebuild : TEST_RUNNER_ transmet la variable au processus XCTest.
+    test_environment=dict(os.environ)
+    test_environment.update({
+        'TEST_RUNNER_IOS_SCREENSHOT_LOGIN':os.environ['IOS_SCREENSHOT_LOGIN'],
+        'TEST_RUNNER_IOS_SCREENSHOT_PASSWORD':os.environ['IOS_SCREENSHOT_PASSWORD'],
+        'TEST_RUNNER_IOS_CAPTURE_FAMILY':family,
+    })
     result_path=root/f'{family}.xcresult'
-    run('xcodebuild','test-without-building','-xctestrun',str(run_file),'-destination',f'platform=iOS Simulator,id={device}',
+    run('xcodebuild','test-without-building','-xctestrun',str(original_run),'-destination',f'platform=iOS Simulator,id={device}',
         '-resultBundlePath',str(result_path),'-parallel-testing-enabled','NO','-maximum-concurrent-test-simulator-destinations','1',
-        '-only-testing:MaisonPiloteCapture/AppStoreCapture/testCaptureScreens',timeout=600)
+        '-only-testing:MaisonPiloteCapture/AppStoreCapture/testCaptureScreens',timeout=600,env=test_environment)
     attachments=root/f'{family}-attachments'
     run('xcrun','xcresulttool','export','attachments','--path',str(result_path),'--output-path',str(attachments))
     exported=json.loads((attachments/'manifest.json').read_text())

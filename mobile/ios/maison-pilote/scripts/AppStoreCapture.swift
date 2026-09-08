@@ -22,6 +22,15 @@ final class AppStoreCapture: XCTestCase {
         app.webViews.buttons["Se connecter"].firstMatch.tap()
         let documents = app.webViews.buttons["Documents"].firstMatch
         XCTAssertTrue(documents.waitForExistence(timeout: 90), "Accueil de démonstration indisponible")
+        let systemAlert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
+        if systemAlert.waitForExistence(timeout: 5) {
+            let allow = systemAlert.buttons.matching(NSPredicate(format: "label IN %@", ["Autoriser", "Allow"])).firstMatch
+            XCTAssertTrue(allow.exists, "Une alerte système inattendue empêche la capture")
+            allow.tap()
+        }
+        if app.webViews.staticTexts["Activer la connexion biométrique ?"].firstMatch.waitForExistence(timeout: 5) {
+            app.webViews.buttons["Fermer"].firstMatch.tap()
+        }
         Thread.sleep(forTimeInterval: 3)
         attachScreen(named: family + "-01-accueil")
         documents.tap()
