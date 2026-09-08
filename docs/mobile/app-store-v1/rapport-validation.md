@@ -57,7 +57,7 @@ sa cause n’est pas établie. Le contrôle hors ligne retourne un échec explic
 pour la famille de captures Watch manquante, tout en validant l’IPA et la
 correspondance des sources. Voir le [diagnostic](blocage-apple-watch.md).
 
-Les douze sessions mobiles créées par les captures ont été révoquées ; les
+Les sessions mobiles temporaires créées par les captures et diagnostics ont été révoquées ; les
 sessions préexistantes ont été conservées. Les deux secrets temporaires de
 connexion utilisés pour les captures ont été supprimés de GitHub.
 
@@ -68,6 +68,10 @@ du statut DSA ne peut pas être certifié par les accès API utilisés.
 La relecture des journaux après correction n’a relevé aucune nouvelle erreur
 Nginx. Les erreurs Laravel observées concernent des tâches planifiées existantes
 et un contrôle concurrent de la page d’accueil, hors du parcours mobile testé.
+Une interrogation finale de l’API Apple a également produit une erreur 404
+dans un script de contrôle, due à un préfixe d’URL dupliqué ; l’URL du script
+a été corrigée et les trois lectures finales ont réussi. Cette erreur concerne
+le contrôle ponctuel, sans modification de l’application ou de ses données.
 
 ## Conservation
 

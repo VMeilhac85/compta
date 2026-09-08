@@ -26,12 +26,33 @@ conservé sans modification ; `validation-status.json` indique le rejet.
 
 ## Limite du diagnostic actuel
 
-La requête Watch utilise `WCSession.sendMessage` et attend un rappel de réponse
-ou d’erreur. Le code ne définit pas son propre délai d’expiration pour cette
-attente. L’iPhone active bien le relais au démarrage et son appel HTTP possède
-un délai d’expiration. Ces observations ne permettent pas de déterminer si
-le problème vient du transport entre simulateurs ou du relais applicatif.
-Aucun essai sur une paire d’appareils physiques n’a été effectué.
+Une exécution supplémentaire avec une instrumentation temporaire, isolée des
+sources distribuées, a précisé l’échec :
+[diagnostic 34256229422](https://github.com/VMeilhac85/compta/actions/runs/34256229422).
+Les deux sessions WatchConnectivity s’activent, mais l’iPhone indique
+`paired=true`, `installed=false`, `reachable=false`, et la montre indique
+`reachable=false`. La requête quitte donc le contrôle de disponibilité en erreur
+avant tout `sendMessage`. Aucun message n’arrive au relais iPhone. La capture
+de diagnostic affiche cette fois le message « Le téléphone ne répond pas ».
+
+Un [second essai](https://github.com/VMeilhac85/compta/actions/runs/34257292858)
+a démarré les deux simulateurs et installé les deux applications avant le
+parcours de connexion. Les journaux montrent encore `installed=false` sur
+l’iPhone et `reachable=false` sur la montre. Ce changement d’ordre ne résout
+donc pas le problème. Le run est marqué `cancelled` après une demande d’arrêt
+à environ quinze minutes ; les étapes de capture et de conservation ont
+néanmoins terminé et leurs fichiers ont été récupérés. Ce run reste une preuve
+de diagnostic, pas une validation réussie de la fonction Watch.
+
+Les deux ensembles de journaux et de captures de diagnostic sont conservés
+dans `validations/watch-diagnostics`. Leurs sources temporaires ne font pas
+partie de l’archive signée 1.131.
+
+Dans cet essai, le blocage se situe donc avant l’appel HTTP. L’absence de délai
+applicatif autour de `sendMessage`, observée dans le code, n’explique pas cet
+échec puisque la méthode n’est pas appelée. La reconnaissance de l’application
+Watch par la paire de simulateurs reste à résoudre. Aucun essai sur une paire
+d’appareils physiques n’a été effectué.
 
 Le succès du job de capture signifie que les fichiers ont été produits ; il
 ne prouve pas que la fonction Watch a réussi. Le contrôle visuel et le contrôle
@@ -39,11 +60,11 @@ du dossier signalent donc ce blocage séparément.
 
 ## Suite nécessaire
 
-Si la Watch reste dans cette première publication, instrumenter les événements
-d’activation, de réception et de réponse du relais, sans journaliser de jeton
-ni de contenu métier, puis valider la résolution et produire une capture
-représentative. Toute correction native devra être versionnée et reconstruite
-dans une nouvelle archive signée.
+Si la Watch reste dans cette première publication, obtenir une paire dont les
+applications sont reconnues et joignables, puis valider l’échange réel et produire
+une capture représentative. Le diagnostic journalise seulement les étapes et
+états de liaison, sans jeton ni contenu métier. Toute correction native devra
+être versionnée et reconstruite dans une nouvelle archive signée.
 
 Si le propriétaire choisit une première publication iPhone/iPad uniquement,
 préparer une autre archive sans les cibles Watch et adapter la fiche et les
