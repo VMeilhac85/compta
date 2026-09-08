@@ -12,7 +12,7 @@
 Au contrôle du 8 septembre 2026, le groupe public contient la version **1.112
 (112)**, approuvée pour la bêta et compatible avec **iOS 16.4 ou ultérieur**.
 Son expiration est annoncée par Apple au 30 novembre 2026. Le groupe est ouvert
-avec une limite de 100 testeurs. La version préparée **1.126 (126)** ne sera
+avec une limite de 100 testeurs. La version préparée **1.128 (128)** ne sera
 proposée qu’après une demande explicite d’envoi du propriétaire et sa mise à
 disposition par Apple.
 

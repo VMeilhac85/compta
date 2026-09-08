@@ -1,6 +1,6 @@
 # Validation de la première publication Maison Pilote
 
-Version proposée : **1.126, build 126**. Le téléchargement est proposé gratuit,
+Version proposée : **1.128, build 128**. Le téléchargement est proposé gratuit,
 en France, avec une fiche française et un compte Maison Pilote existant.
 
 ## Contenu de la décision
@@ -23,12 +23,12 @@ La décision d’accepter l’application et le délai de revue appartiennent à
 ## Exécution après autorisation
 
 Le binaire à transmettre est l’IPA déjà signée et contrôlée du dossier privé
-`storage/app/private/mobile/app-store/1.126-126`. Son empreinte exacte figure
+`storage/app/private/mobile/app-store/1.128-128`. Son empreinte exacte figure
 dans `preparation-result.json`. Une nouvelle compilation ne doit pas remplacer
 silencieusement ce binaire approuvé.
 
 Après l’envoi autorisé, attendre le traitement Apple, vérifier son résultat,
-renseigner la fiche et ses médias, associer le build 126 et le compte de revue,
+renseigner la fiche et ses médias, associer le build 128 et le compte de revue,
 puis soumettre uniquement selon la portée demandée. Une erreur de validation
 Apple ou une demande du contrôleur doit être traitée et rapportée avant de
 considérer la publication terminée.

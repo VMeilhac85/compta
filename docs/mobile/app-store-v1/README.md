@@ -1,6 +1,6 @@
 # Maison Pilote - préparation de la première publication App Store
 
-Version proposée : **1.126 (126)**. « V1 » désigne la première publication
+Version proposée : **1.128 (128)**. « V1 » désigne la première publication
 publique ; le numéro reste cohérent avec les versions mobiles déjà produites.
 
 ## Contenu à valider
@@ -24,6 +24,14 @@ La politique de confidentialité est accessible dans l’application depuis la
 connexion et les paramètres utilisateur. Le lien, son texte, ses emplacements
 et sa présentation ont été portés sur le runtime partagé des émulateurs et de
 l’iPhone, ainsi que sur les écrans natifs Android.
+
+Le contrôle natif a également révélé un écran de chargement bloqué sur l’ancien
+domaine : le document HTML restait sur `maisonpilote.meilhac.expert`, alors que
+ses modules JavaScript étaient redirigés vers `maisonpilote.fr`. Le point
+d’entrée iOS rejoint désormais le domaine canonique avant de charger
+l’interface, en conservant ses paramètres. Cette correction s’applique aussi
+aux coques iOS déjà installées. Les API des anciens clients Android restent
+accessibles sur leur adresse historique.
 
 ## Construction et conservation
 
@@ -66,7 +74,7 @@ serveur Apple. Cette dernière ne peut être obtenue avant la transmission réel
    Connect à partir des réponses préparées.
 3. Sur demande explicite d’envoi : transmettre l’IPA contrôlée, conserver son
    numéro de build et son empreinte, attendre le traitement Apple, renseigner la
-   version publique 1.126 et ses médias, associer le build et les informations de
+   version publique 1.128 et ses médias, associer le build et les informations de
    revue, puis effectuer la soumission autorisée.
 4. La décision d’App Review appartient à Apple. Si le propriétaire a autorisé la
    publication après approbation, appliquer ce mode ; sinon conserver la version
