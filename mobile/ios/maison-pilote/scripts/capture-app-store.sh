@@ -82,8 +82,8 @@ def sim(*args, **kwargs): return run('xcrun','simctl',*args, **kwargs)
 catalog=json.loads(sim('list','--json'))
 runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.iOS-' in r['identifier'])
 types=catalog['devicetypes']
-iphone=next(t for t in types if t['name'] in ['iPhone 17 Pro Max','iPhone 16 Pro Max'])
-ipad=next(t for t in types if 'iPad Pro 13-inch' in t['name'])
+iphone=next(t for t in types if t['name']=='iPhone 16 Pro Max')
+ipad=next(t for t in types if t['name']=='iPad Pro 13-inch (M4)')
 records=[]
 for label, dtype in [('iphone',iphone),('ipad',ipad)]:
     device=sim('create','Maison Pilote App Store '+label,dtype['identifier'],runtime)
@@ -91,7 +91,7 @@ for label, dtype in [('iphone',iphone),('ipad',ipad)]:
     watch=None
     if label=='iphone':
         watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
-        watch_type=next(t for t in types if 'Apple Watch Series 11 (46mm)' in t['name'] or 'Apple Watch Series 10 (46mm)' in t['name'])
+        watch_type=next(t for t in types if t['name']=='Apple Watch Series 10 (46mm)')
         watch=sim('create','Maison Pilote App Store Watch',watch_type['identifier'],watch_runtime)
         with (root/'devices.txt').open('a') as stream: stream.write(watch+'\n')
         sim('pair',watch,device)
