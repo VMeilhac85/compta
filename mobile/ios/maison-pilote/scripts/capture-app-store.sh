@@ -53,7 +53,22 @@ root=Path(os.environ['CAPTURE_TEMP'])/'SessionSeed.app'
  'MinimumOSVersion':'16.4', 'UIDeviceFamily':[1,2],
 }))
 PYTHON
-codesign --force --sign - "$CAPTURE_TEMP/SessionSeed.app"
+python3 - <<'PYTHON'
+import os, plistlib, subprocess
+from pathlib import Path
+root=Path(os.environ['CAPTURE_TEMP'])
+app=Path(os.environ['APP_PATH'])
+team=os.environ['IOS_DEVELOPMENT_TEAM']
+bundles=sorted(app.rglob('*.appex'),key=lambda p:len(p.parts),reverse=True)+sorted(app.rglob('*.app'),key=lambda p:len(p.parts),reverse=True)+[app,root/'SessionSeed.app']
+for index,bundle in enumerate(bundles):
+    bundle_id=plistlib.loads((bundle/'Info.plist').read_bytes())['CFBundleIdentifier']
+    entitlements={'application-identifier':team+'.'+bundle_id,'com.apple.developer.team-identifier':team,
+                  'keychain-access-groups':[team+'.'+bundle_id],
+                  'com.apple.security.application-groups':['group.expert.meilhac.maisonpilote']}
+    path=root/f'simulator-entitlements-{index}.plist'
+    path.write_bytes(plistlib.dumps(entitlements))
+    subprocess.run(['codesign','--force','--sign','-','--entitlements',str(path),str(bundle)],check=True)
+PYTHON
 
 python3 - <<'PYTHON'
 import json, os, subprocess, time
@@ -91,7 +106,7 @@ for label, dtype in [('iphone',iphone),('ipad',ipad)]:
         if (container/'Documents/seed-status.json').exists(): break
         time.sleep(1)
     status=json.loads((container/'Documents/seed-status.json').read_text())
-    assert status['status']==0, 'Échec du chargement de la session de démonstration.'
+    assert status['status']==0, f"Échec de la session de démonstration : OSStatus {status['status']}"
     sim('terminate',device,'expert.meilhac.maisonpilote')
     sim('install',device,os.environ['APP_PATH'])
     sim('ui',device,'appearance','light')

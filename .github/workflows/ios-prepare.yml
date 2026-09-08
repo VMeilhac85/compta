@@ -152,6 +152,8 @@ jobs:
     needs: prepare
     runs-on: macos-15
     timeout-minutes: 25
+    env:
+      IOS_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
     steps:
       - name: Récupérer les mêmes sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
