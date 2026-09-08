@@ -2,6 +2,11 @@ name: Préparer iOS App Store sans envoi
 
 on:
   workflow_dispatch:
+    inputs:
+      capture_screenshots:
+        description: Capturer aussi les écrans App Store
+        type: boolean
+        default: false
   push:
     branches: ['prepare/appstore-v1-*']
     paths: ['mobile/ios/**', '.github/workflows/ios-prepare.yml']
@@ -149,6 +154,7 @@ jobs:
           fi
 
   screenshots:
+    if: github.event_name == 'workflow_dispatch' && inputs.capture_screenshots
     needs: prepare
     runs-on: macos-15
     timeout-minutes: 25
