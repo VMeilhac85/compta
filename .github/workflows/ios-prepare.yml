@@ -166,7 +166,8 @@ jobs:
           mobile/ios/maison-pilote/scripts/bootstrap.sh
       - name: Capturer les écrans natifs avec les seules données de démonstration
         env:
-          IOS_SCREENSHOT_SESSION: ${{ secrets.IOS_SCREENSHOT_SESSION }}
+          IOS_SCREENSHOT_LOGIN: ${{ secrets.IOS_SCREENSHOT_LOGIN }}
+          IOS_SCREENSHOT_PASSWORD: ${{ secrets.IOS_SCREENSHOT_PASSWORD }}
         run: mobile/ios/maison-pilote/scripts/capture-app-store.sh
       - name: Conserver les captures
         if: always()

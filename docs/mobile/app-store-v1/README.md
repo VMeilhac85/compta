@@ -37,9 +37,11 @@ résultat contient l’empreinte SHA-256 de l’IPA et le commit exact de ses so
 Il exporte localement : **aucun binaire n’est envoyé à App Store Connect**.
 
 Les captures proviennent de l’application native dans les simulateurs Apple.
-L’outil temporaire de préparation de la session de démonstration est remplacé
-par le vrai binaire avant les captures et ne figure pas dans l’IPA. Le compte
-utilisé n’accède qu’au dossier fictif « Démo GRH ».
+Un seul parcours automatisé de connexion puis de consultation de Documents
+produit les captures iPhone et iPad. Il est isolé des cibles distribuées et ne
+figure pas dans l’IPA. Ce parcours a été nécessaire après l’échec des tentatives
+de préparation plus légères de la session du simulateur. Le compte utilisé
+n’accède qu’au dossier fictif « Démo GRH ».
 
 Les fichiers signés sont des fichiers de distribution App Store. Ils ne
 s’installent pas directement sur un iPhone depuis un lien de téléchargement.

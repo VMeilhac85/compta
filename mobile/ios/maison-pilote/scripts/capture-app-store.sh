@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Captures de l'application native inchangée, sur des simulateurs temporaires.
+# Un parcours de capture natif : connexion de démonstration puis Documents.
 set -euo pipefail
 umask 077
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 : "${IOS_PREPARATION_DIRECTORY:?Répertoire de préparation requis}"
-: "${IOS_SCREENSHOT_SESSION:?Session de démonstration temporaire requise}"
+: "${IOS_SCREENSHOT_LOGIN:?Compte de démonstration requis}"
+: "${IOS_SCREENSHOT_PASSWORD:?Secret de démonstration requis}"
 CAPTURE_TEMP="$(mktemp -d "${TMPDIR:-/tmp}/maison-pilote-captures.XXXXXX")"
-export CAPTURE_TEMP
+export CAPTURE_TEMP PROJECT_DIR SCRIPT_DIR
 cleanup() {
     python3 - <<'PYTHON'
 import os, subprocess, shutil
@@ -20,111 +21,98 @@ if (root/'devices.txt').exists():
             except subprocess.TimeoutExpired: pass
 shutil.rmtree(root,ignore_errors=True)
 PYTHON
+    rm -f -- "$PROJECT_DIR/capture-project.json"
 }
 trap cleanup EXIT
-IOS_DERIVED_DATA_PATH="$CAPTURE_TEMP/DerivedData" "$SCRIPT_DIR/build.sh"
-APP_PATH="$(python3 - <<'PYTHON'
-import os, plistlib
-from pathlib import Path
-root=Path(os.environ['CAPTURE_TEMP'])/'DerivedData/Build/Products/Debug-iphonesimulator'
-apps=[p for p in root.glob('*.app') if (p/'Info.plist').is_file() and plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote']
-assert len(apps)==1, 'Le binaire iOS de capture doit être identifié sans ambiguïté.'
-print(apps[0])
-PYTHON
-)"
-export APP_PATH
-mkdir -p "$IOS_PREPARATION_DIRECTORY/screenshots/fr-FR"
-
-# Le petit outil de session est installé puis remplacé par le vrai binaire.
-# Il n'est jamais inclus dans l'archive signée ni dans les captures livrées.
-mkdir -p "$CAPTURE_TEMP/SessionSeed.app"
-SDK_PATH="$(xcrun --sdk iphonesimulator --show-sdk-path)"
-xcrun --sdk iphonesimulator swiftc -sdk "$SDK_PATH" \
-    -target "$(uname -m)-apple-ios16.4-simulator" \
-    "$SCRIPT_DIR/screenshot-session-seed.swift" -o "$CAPTURE_TEMP/SessionSeed.app/SessionSeed"
-python3 - <<'PYTHON'
-import os, plistlib
-from pathlib import Path
-root=Path(os.environ['CAPTURE_TEMP'])/'SessionSeed.app'
-(root/'Info.plist').write_bytes(plistlib.dumps({
- 'CFBundleIdentifier':'expert.meilhac.maisonpilote', 'CFBundleExecutable':'SessionSeed',
- 'CFBundleName':'SessionSeed', 'CFBundlePackageType':'APPL', 'CFBundleVersion':'1',
- 'CFBundleShortVersionString':'1.0', 'LSRequiresIPhoneOS':True,
- 'MinimumOSVersion':'16.4', 'UIDeviceFamily':[1,2],
-}))
-PYTHON
-python3 - <<'PYTHON'
-import os, plistlib, subprocess
-from pathlib import Path
-root=Path(os.environ['CAPTURE_TEMP'])
-app=Path(os.environ['APP_PATH'])
-team=os.environ['IOS_DEVELOPMENT_TEAM']
-bundles=sorted(app.rglob('*.appex'),key=lambda p:len(p.parts),reverse=True)+sorted(app.rglob('*.app'),key=lambda p:len(p.parts),reverse=True)+[app,root/'SessionSeed.app']
-for index,bundle in enumerate(bundles):
-    bundle_id=plistlib.loads((bundle/'Info.plist').read_bytes())['CFBundleIdentifier']
-    entitlements={'application-identifier':team+'.'+bundle_id,'com.apple.developer.team-identifier':team,
-                  'keychain-access-groups':[team+'.'+bundle_id],
-                  'com.apple.security.application-groups':['group.expert.meilhac.maisonpilote']}
-    path=root/f'simulator-entitlements-{index}.plist'
-    path.write_bytes(plistlib.dumps(entitlements))
-    subprocess.run(['codesign','--force','--sign','-','--entitlements',str(path),str(bundle)],check=True)
-PYTHON
 
 python3 - <<'PYTHON'
-import json, os, subprocess, time
+import json, os
+from pathlib import Path
+project=Path(os.environ['PROJECT_DIR'])
+spec={
+ 'include':['project.yml'],
+ 'targets':{'MaisonPiloteCapture':{
+  'type':'bundle.ui-testing','platform':'iOS','deploymentTarget':'16.4',
+  'sources':[{'path':str(Path(os.environ['SCRIPT_DIR'])/'AppStoreCapture.swift')}],
+  'dependencies':[{'target':'MaisonPilote'}],
+  'settings':{'base':{'PRODUCT_BUNDLE_IDENTIFIER':'expert.meilhac.maisonpilote.capture','GENERATE_INFOPLIST_FILE':'YES','TEST_TARGET_NAME':'MaisonPilote'}},
+ }},
+ 'schemes':{'MaisonPiloteCapture':{'build':{'targets':{'MaisonPilote':'all','MaisonPiloteCapture':'all'}},'test':{'targets':['MaisonPiloteCapture']}}},
+}
+(project/'capture-project.json').write_text(json.dumps(spec))
+PYTHON
+(cd "$PROJECT_DIR" && xcodegen generate --spec capture-project.json)
+xcodebuild build-for-testing -project "$PROJECT_DIR/MaisonPiloteIOS.xcodeproj" \
+    -scheme MaisonPiloteCapture -configuration Debug -destination 'generic/platform=iOS Simulator' \
+    -derivedDataPath "$CAPTURE_TEMP/DerivedData" CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=-
+
+python3 - <<'PYTHON'
+import json, os, plistlib, subprocess, time
 from pathlib import Path
 root=Path(os.environ['CAPTURE_TEMP'])
 out=Path(os.environ['IOS_PREPARATION_DIRECTORY'])/'screenshots/fr-FR'
-def run(*args, **kwargs):
-    print('Capture native :', ' '.join(args), flush=True)
-    return subprocess.check_output(list(args), text=True, timeout=360, **kwargs).strip()
-def sim(*args, **kwargs): return run('xcrun','simctl',*args, **kwargs)
+out.mkdir(parents=True,exist_ok=True)
+def run(*args,timeout=360,**kwargs):
+    print('Capture native :',' '.join(args),flush=True)
+    try: return subprocess.check_output(list(args),text=True,timeout=timeout,**kwargs).strip()
+    except subprocess.CalledProcessError as error:
+        print('\n'.join((error.output or '').splitlines()[-45:]),flush=True)
+        raise
+def sim(*args):return run('xcrun','simctl',*args)
 catalog=json.loads(sim('list','--json'))
 runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.iOS-' in r['identifier'])
-types=catalog['devicetypes']
-iphone=next(t for t in types if t['name']=='iPhone 16 Pro Max')
-ipad=next(t for t in types if t['name']=='iPad Pro 13-inch (M4)')
+watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
+find_type=lambda name:next(t for t in catalog['devicetypes'] if t['name']==name)
+original_run=next((root/'DerivedData/Build/Products').glob('*.xctestrun'))
 records=[]
-for label, dtype in [('iphone',iphone),('ipad',ipad)]:
-    device=sim('create','Maison Pilote App Store '+label,dtype['identifier'],runtime)
-    with (root/'devices.txt').open('a') as stream: stream.write(device+'\n')
+for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type('iPad Pro 13-inch (M4)'))]:
+    device=sim('create','Maison Pilote App Store '+family,dtype['identifier'],runtime)
+    with (root/'devices.txt').open('a') as stream:stream.write(device+'\n')
     watch=None
-    if label=='iphone':
-        watch_runtime=next(r['identifier'] for r in catalog['runtimes'] if r.get('isAvailable') and '.watchOS-' in r['identifier'])
-        watch_type=next(t for t in types if t['name']=='Apple Watch Series 10 (46mm)')
+    if family=='iphone':
+        watch_type=find_type('Apple Watch Series 10 (46mm)')
         watch=sim('create','Maison Pilote App Store Watch',watch_type['identifier'],watch_runtime)
-        with (root/'devices.txt').open('a') as stream: stream.write(watch+'\n')
+        with (root/'devices.txt').open('a') as stream:stream.write(watch+'\n')
         sim('pair',watch,device)
     sim('boot',device);sim('bootstatus',device,'-b')
     sim('status_bar',device,'override','--time','9:41','--dataNetwork','wifi','--wifiMode','active','--wifiBars','3','--batteryState','charged','--batteryLevel','100')
-    sim('install',device,str(root/'SessionSeed.app'))
-    environment=dict(os.environ)
-    environment['SIMCTL_CHILD_IOS_SCREENSHOT_SESSION']=environment.pop('IOS_SCREENSHOT_SESSION')
-    sim('launch',device,'expert.meilhac.maisonpilote',env=environment)
-    container=Path(sim('get_app_container',device,'expert.meilhac.maisonpilote','data'))
-    for _ in range(40):
-        if (container/'Documents/seed-status.json').exists(): break
-        time.sleep(1)
-    status=json.loads((container/'Documents/seed-status.json').read_text())
-    assert status['status']==0, f"Échec de la session de démonstration : OSStatus {status['status']}"
-    sim('terminate',device,'expert.meilhac.maisonpilote')
-    sim('install',device,os.environ['APP_PATH'])
-    sim('ui',device,'appearance','light')
-    sim('launch',device,'expert.meilhac.maisonpilote','-AppleLanguages','(fr)','-AppleLocale','fr_FR')
-    time.sleep(20)
-    for number, (route,name) in enumerate([('accueil','accueil'),('documents','documents')],1):
-        sim('openurl',device,'maisonpilote://app/'+route)
-        time.sleep(8)
-        filename=f'{label}-{number:02d}-{name}.png'
-        sim('io',device,'screenshot','--type=png',str(out/filename))
-        records.append({'filename':filename,'device':dtype['name'],'origin':'native-ios-simulator','route':route})
+    payload=plistlib.loads(original_run.read_bytes())
+    for configuration in payload.get('TestConfigurations',[]):
+        for target in configuration.get('TestTargets',[]):
+            target.setdefault('EnvironmentVariables',{}).update({
+                'IOS_SCREENSHOT_LOGIN':os.environ['IOS_SCREENSHOT_LOGIN'],
+                'IOS_SCREENSHOT_PASSWORD':os.environ['IOS_SCREENSHOT_PASSWORD'],
+                'IOS_CAPTURE_FAMILY':family,
+            })
+    run_file=original_run.with_name(f'{family}.xctestrun')
+    run_file.write_bytes(plistlib.dumps(payload));run_file.chmod(0o600)
+    result_path=root/f'{family}.xcresult'
+    run('xcodebuild','test-without-building','-xctestrun',str(run_file),'-destination',f'platform=iOS Simulator,id={device}',
+        '-resultBundlePath',str(result_path),'-parallel-testing-enabled','NO','-maximum-concurrent-test-simulator-destinations','1',
+        '-only-testing:MaisonPiloteCapture/AppStoreCapture/testCaptureScreens',timeout=600)
+    attachments=root/f'{family}-attachments'
+    run('xcrun','xcresulttool','export','attachments','--path',str(result_path),'--output-path',str(attachments))
+    exported=json.loads((attachments/'manifest.json').read_text())
+    def attachments_in(value):
+        if isinstance(value,dict):
+            if 'exportedFileName' in value and 'suggestedHumanReadableName' in value:yield value
+            for child in value.values():yield from attachments_in(child)
+        elif isinstance(value,list):
+            for child in value:yield from attachments_in(child)
+    for attachment in attachments_in(exported):
+        label=attachment['suggestedHumanReadableName']
+        for screen in ['01-accueil','02-documents']:
+            if family+'-'+screen in label:
+                filename=family+'-'+screen+'.png'
+                (out/filename).write_bytes((attachments/attachment['exportedFileName']).read_bytes())
+                records.append({'filename':filename,'device':dtype['name'],'origin':'native-ios-simulator'})
+    assert (out/f'{family}-01-accueil.png').exists() and (out/f'{family}-02-documents.png').exists(), 'Captures de connexion et Documents absentes.'
     if watch:
+        sim('launch',device,'expert.meilhac.maisonpilote')
         sim('boot',watch);sim('bootstatus',watch,'-b')
-        watch_app=Path(os.environ['APP_PATH'])/'Watch/MaisonPiloteWatch.app'
-        if not watch_app.exists():
-            watch_app=next((root/'DerivedData/Build/Products/Debug-watchsimulator').glob('*.app'))
-        sim('install',watch,str(watch_app))
-        sim('launch',watch,'expert.meilhac.maisonpilote.watchkitapp','-AppleLanguages','(fr)','-AppleLocale','fr_FR')
+        products=root/'DerivedData/Build/Products/Debug-watchsimulator'
+        watch_app=next(p for p in products.glob('*.app') if plistlib.loads((p/'Info.plist').read_bytes()).get('CFBundleIdentifier')=='expert.meilhac.maisonpilote.watchkitapp')
+        sim('install',watch,str(watch_app));sim('launch',watch,'expert.meilhac.maisonpilote.watchkitapp')
         time.sleep(20)
         sim('io',watch,'screenshot','--type=png',str(out/'watch-01-assistant.png'))
         records.append({'filename':'watch-01-assistant.png','device':watch_type['name'],'origin':'native-watchos-simulator'})
