@@ -148,7 +148,9 @@ for family,dtype in [('iphone',find_type('iPhone 16 Pro Max')),('ipad',find_type
         time.sleep(20)
         sim('terminate',watch,'expert.meilhac.maisonpilote.watchkitapp')
         sim('launch',watch,'expert.meilhac.maisonpilote.watchkitapp')
-        time.sleep(10)
+        # La liaison WatchConnectivity et la réponse HTTPS peuvent dépasser
+        # dix secondes au premier démarrage du simulateur.
+        time.sleep(70)
         sim('io',watch,'screenshot','--type=png',str(out/'watch-01-assistant.png'))
         records.append({'filename':'watch-01-assistant.png','device':watch_type['name'],'origin':'native-watchos-simulator'})
         sim('shutdown',watch)
