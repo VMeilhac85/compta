@@ -10,7 +10,9 @@ Le questionnaire de confidentialité peut être rempli par un titulaire, un admi
 
 ## 1. Confidentialité de Maison Pilote
 
-1. Ouvrir [App Store Connect - Maison Pilote](https://appstoreconnect.apple.com/apps/6807432374), puis **Confidentialité de l’app** dans le menu latéral.
+Si la page Apple reste blanche, ouvrir [la liste des apps](https://appstoreconnect.apple.com/apps), se connecter puis sélectionner Maison Pilote. Le lien limité à `/apps/6807432374` ne correspond pas à la route de fiche déclarée par le navigateur Apple ; la rubrique Distribution utilise `/apps/6807432374/distribution`.
+
+1. Ouvrir [App Store Connect - Maison Pilote](https://appstoreconnect.apple.com/apps/6807432374/distribution), puis **Confidentialité de l’app** dans le menu latéral.
 2. Dans **Politique de confidentialité**, vérifier le lien déjà enregistré : `https://maisonpilote.fr/confidentialite`.
 3. Dans la collecte de données, cliquer sur **Commencer** ; si des réponses existent déjà, utiliser **Modifier**.
 4. Répondre **Oui, nous collectons des données à partir de cette app**. Les données reçues par le service Maison Pilote depuis la WebView comptent aussi.
