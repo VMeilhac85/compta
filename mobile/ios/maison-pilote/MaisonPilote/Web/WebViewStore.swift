@@ -562,7 +562,7 @@ extension WebViewStore: WKUIDelegate {
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
         let trusted = origin.protocol.lowercased() == "https"
-            && origin.host.lowercased() == AppEnvironment.trustedHost
+            && AppEnvironment.trustedHosts.contains(origin.host.lowercased())
             && (origin.port == 0 || origin.port == 443)
         guard trusted, frame.isMainFrame else {
             decisionHandler(.deny)

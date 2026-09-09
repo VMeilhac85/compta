@@ -17,8 +17,6 @@ fi
 : "${IOS_BUILD_NUMBER:?Variable requise}"
 : "${IOS_APP_PROVISIONING_PROFILE_SPECIFIER:?Profil App Store de l’application requis}"
 : "${IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER:?Profil App Store de l’extension de partage requis}"
-: "${IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER:?Profil App Store de l’app Watch requis}"
-: "${IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER:?Profil App Store de l’extension Watch requis}"
 
 if [[ ! "$IOS_DEVELOPMENT_TEAM" =~ ^[A-Z0-9]{10}$ ]]; then
     echo "IOS_DEVELOPMENT_TEAM doit contenir 10 caractères alphanumériques." >&2
@@ -34,9 +32,7 @@ if [[ ! "$IOS_MARKETING_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
 fi
 for profile_specifier in \
     "$IOS_APP_PROVISIONING_PROFILE_SPECIFIER" \
-    "$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER" \
-    "$IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER" \
-    "$IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER"; do
+    "$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER"; do
     if [[ ! "$profile_specifier" =~ ^[0-9a-fA-F-]{36}$ ]]; then
         echo "Un identifiant de profil App Store est invalide." >&2
         exit 64
@@ -87,8 +83,6 @@ xcodebuild archive \
     "MAISON_PILOTE_WATCH_MINIMUM_OS_VERSION=$WATCH_MINIMUM_OS_VERSION" \
     "MAISON_PILOTE_APP_PROVISIONING_PROFILE_SPECIFIER=$IOS_APP_PROVISIONING_PROFILE_SPECIFIER" \
     "MAISON_PILOTE_SHARE_PROVISIONING_PROFILE_SPECIFIER=$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER" \
-    "MAISON_PILOTE_WATCH_PROVISIONING_PROFILE_SPECIFIER=$IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER" \
-    "MAISON_PILOTE_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER=$IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER" \
     CODE_SIGN_STYLE=Manual \
     "CODE_SIGN_IDENTITY=Apple Distribution" \
     -allowProvisioningUpdates \
@@ -117,10 +111,6 @@ cat > "$TEMP_DIR/ExportOptions.plist" <<PLIST
         <string>$IOS_APP_PROVISIONING_PROFILE_SPECIFIER</string>
         <key>$BUNDLE_IDENTIFIER.share</key>
         <string>$IOS_SHARE_PROVISIONING_PROFILE_SPECIFIER</string>
-        <key>$BUNDLE_IDENTIFIER.watchkitapp</key>
-        <string>$IOS_WATCH_PROVISIONING_PROFILE_SPECIFIER</string>
-        <key>$BUNDLE_IDENTIFIER.watchkitapp.watchkitextension</key>
-        <string>$IOS_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER</string>
     </dict>
     <key>stripSwiftSymbols</key>
     <true/>

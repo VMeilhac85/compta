@@ -1,0 +1,60 @@
+{
+  "prepared_at_utc": "2026-09-08T23:10:30.081082+00:00",
+  "listing_operations_executed": true,
+  "authorization": "Remplissage de la fiche et préparation iPhone/iPad sans Apple Watch demandés le 9 septembre 2026. Aucun nouvel envoi de version ni soumission publique autorisés dans cette demande.",
+  "ipa": {
+    "version_name": "1.132",
+    "version_code": 132,
+    "prepared_at_utc": "2026-09-08T23:00:32.865280+00:00",
+    "apple_upload_performed": false,
+    "app_store_server_validation_performed": false,
+    "ipa_filename": "Maison Pilote.ipa",
+    "ipa_sha256": "d39d06f7e837d5c87eab601b4f24642965689637d157dc729da65579d3519040",
+    "source_commit": "b946a7f2c2c188a8f26f397fddf747a01e9af3e1",
+    "targets": [
+      {
+        "bundle_id": "expert.meilhac.maisonpilote",
+        "signature_verified": true,
+        "profile_expires_at_utc": "2027-09-01T14:42:20Z"
+      },
+      {
+        "bundle_id": "expert.meilhac.maisonpilote.share",
+        "signature_verified": true,
+        "profile_expires_at_utc": "2027-09-01T14:42:20Z"
+      }
+    ]
+  },
+  "app_store_version_id": "fc7006db-f55f-40c2-b36e-f2bba14ccdb0",
+  "app_store_state": "PREPARE_FOR_SUBMISSION",
+  "build_associated": null,
+  "configured": {
+    "name": "Maison Pilote",
+    "version": "1.132",
+    "locale": "fr-FR",
+    "categories": [
+      "BUSINESS",
+      "PRODUCTIVITY"
+    ],
+    "screenshots": {
+      "APP_IPHONE_67": 2,
+      "APP_IPAD_PRO_3GEN_129": 2
+    },
+    "price": "0.00 EUR",
+    "base_territory": "FRA",
+    "territories": [
+      "FRA"
+    ],
+    "release_type": "MANUAL",
+    "content_rights_declaration": "USES_THIRD_PARTY_CONTENT",
+    "review_credentials_saved": true,
+    "privacy_policy_url": "https://maisonpilote.fr/confidentialite"
+  },
+  "receipts_directory": "storage/app/private/mobile/app-store/v1-1.132-132/apple-listing",
+  "remaining_items": [
+    "Publier les réponses préparées au questionnaire de confidentialité dans App Store Connect.",
+    "Confirmer le statut DSA et traiter les éventuelles formalités du compte Apple.",
+    "Sur décision explicite : envoyer l’archive 132 sans Watch, attendre son traitement, l’associer à la fiche et soumettre selon l’autorisation donnée."
+  ],
+  "guide": "confirmer-compte-apple.md",
+  "app_store_public_submission_performed": false
+}
