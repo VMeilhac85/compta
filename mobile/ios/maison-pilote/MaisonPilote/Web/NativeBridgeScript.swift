@@ -70,6 +70,7 @@ enum NativeBridgeScript {
         window.MaisonPiloteNative = Object.assign({}, window.MaisonPiloteNative || {}, {
             platform: 'ios',
             bridgeVersion: 5,
+            supportsAuthenticatorLinks: true,
             speechRecognition: {
                 start: (language = 'fr-FR') => post(speech, { action: 'start', language }),
                 cancel: () => post(speech, { action: 'cancel', language: 'fr-FR' })

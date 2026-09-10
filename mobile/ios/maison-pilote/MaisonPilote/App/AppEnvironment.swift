@@ -114,6 +114,15 @@ enum AppEnvironment {
 
     static func canOpenExternally(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
+        if scheme == "otpauth" {
+            guard url.host == "totp", url.user == nil, url.password == nil, url.port == nil,
+                  url.absoluteString.count <= 2048,
+                  let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+                  items.filter({ $0.name == "secret" }).count == 1,
+                  let secret = items.first(where: { $0.name == "secret" })?.value else { return false }
+            return secret.range(of: "^[A-Z2-7]{32}$", options: .regularExpression) != nil
+                && items.first(where: { $0.name == "issuer" })?.value == "Maison Pilote"
+        }
         return [
             "https", "http", "mailto", "tel", "sms", "maps", "itms-beta", "itms-apps",
         ].contains(scheme)
