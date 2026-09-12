@@ -20,7 +20,9 @@ final class WebViewStore: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var started = false
     private var pageReady = false
-    private var pendingDeepLinks: [URL] = []
+    private let navigationInbox = NativeNavigationInbox.shared
+    private let secureDraftStore = SecureDraftStore()
+    private var inFlightNavigationID: UUID?
 
     override init() {
         let contentController = WKUserContentController()
@@ -105,30 +107,27 @@ final class WebViewStore: NSObject, ObservableObject {
     func openDeepLink(_ candidate: URL) {
         guard let url = AppEnvironment.normalizedDeepLink(candidate) else { return }
         if let signatureURL = AppEnvironment.signatureExperienceURL(url) {
-            pendingDeepLinks.removeAll(where: AppEnvironment.isSignatureURL)
             errorMessage = nil
             pageReady = false
             started = true
             load(signatureURL)
             return
         }
-        if !AppEnvironment.isShellURL(url), !pendingDeepLinks.contains(url) {
-            pendingDeepLinks.append(url)
-            if pendingDeepLinks.count > 20 {
-                pendingDeepLinks.removeFirst(pendingDeepLinks.count - 20)
-            }
+        if !AppEnvironment.isShellURL(url) {
+            navigationInbox.enqueue(url: url)
         }
         errorMessage = nil
         if !started {
             started = true
             load(AppEnvironment.initialURL)
         } else if pageReady {
-            deliverPendingDeepLinks()
+            deliverPendingNavigation()
         }
     }
 
     func applicationDidBecomeActive() {
         pushCoordinator.registerIfAuthorized()
+        inFlightNavigationID = nil
         guard pageReady else { return }
         deliverPendingNativePayloads()
     }
@@ -163,6 +162,8 @@ final class WebViewStore: NSObject, ObservableObject {
                         expiresAt: body["expiresAt"] as? String,
                         deviceID: body["deviceId"] as? String
                       ) else { return }
+                navigationInbox.suspendIdentity()
+                inFlightNavigationID = nil
                 refreshSecureSessionInjection(secureSessionStore.load())
                 if pageReady { deliverShareInbox() }
             case "bindDevice":
@@ -170,6 +171,12 @@ final class WebViewStore: NSObject, ObservableObject {
                       secureSessionStore.bindDeviceID(deviceID) else { return }
             case "clear":
                 secureSessionStore.clear()
+                if body["preserve_navigation"] as? Bool == true {
+                    navigationInbox.suspendIdentity()
+                } else {
+                    navigationInbox.clear()
+                }
+                inFlightNavigationID = nil
                 refreshSecureSessionInjection(nil)
                 if pageReady { deliverShareInbox() }
             default:
@@ -197,8 +204,31 @@ final class WebViewStore: NSObject, ObservableObject {
         }
 
         switch action {
+        case "secureDrafts.refresh", "secureDrafts.write", "secureDrafts.remove":
+            handleSecureDrafts(action: action, body: body)
+        case "navigation.bindIdentity":
+            guard secureSessionStore.load() != nil,
+                  let userID = body["user_id"] as? String,
+                  navigationInbox.bindIdentity(userID) else { return }
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
+            inFlightNavigationID = nil
+            deliverPendingNavigation()
+        case "navigation.ack":
+            guard secureSessionStore.load() != nil,
+                  body["outcome"] as? String == "completed",
+                  let rawID = correlationID(body["request_id"]),
+                  let id = UUID(uuidString: rawID),
+                  inFlightNavigationID == id,
+                  navigationInbox.acknowledge(id: id) else { return }
+            inFlightNavigationID = nil
+            deliverPendingNavigation()
+        case "navigation.retry":
+            inFlightNavigationID = nil
+            deliverPendingNavigation()
         case "ready":
+            inFlightNavigationID = nil
             pageReady = true
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
             deliverPendingNativePayloads()
         case "pushNotifications.requestAuthorization":
             pushCoordinator.requestAuthorization()
@@ -256,10 +286,9 @@ final class WebViewStore: NSObject, ObservableObject {
 
     private func deliverPendingNativePayloads() {
         deliverApnsToken()
-        deliverPendingPush()
         deliverPendingAssistantRequest()
         deliverShareInbox()
-        deliverPendingDeepLinks()
+        deliverPendingNavigation()
     }
 
     private func deliverApnsToken() {
@@ -272,24 +301,6 @@ final class WebViewStore: NSObject, ObservableObject {
                 "environment": pushCoordinator.environment,
             ]
         )
-    }
-
-    private func deliverPendingPush() {
-        guard let push = pushCoordinator.pendingPush else { return }
-        var detail: [String: Any] = push.detail
-        detail["opened_by_user"] = push.openedByUser
-        let eventName = push.openedByUser && push.detail["deep_link"] != nil
-            ? "maisonpilote:deep-link"
-            : "maisonpilote:push-notification"
-        if let deepLink = push.detail["deep_link"] {
-            detail["url"] = deepLink
-        }
-        dispatchEvent(name: eventName, detail: detail) { [weak self] delivered in
-            guard delivered else { return }
-            Task { @MainActor [weak self] in
-                self?.pushCoordinator.acknowledge(pushID: push.id)
-            }
-        }
     }
 
     private func deliverPendingAssistantRequest() {
@@ -391,17 +402,56 @@ final class WebViewStore: NSObject, ObservableObject {
         return number.int64Value
     }
 
-    private func deliverPendingDeepLinks() {
-        guard pageReady, let url = pendingDeepLinks.first else { return }
-        dispatchEvent(
-            name: "maisonpilote:deep-link",
-            detail: ["url": url.absoluteString]
-        ) { [weak self] success in
-            guard success, let self else { return }
-            if self.pendingDeepLinks.first == url {
-                self.pendingDeepLinks.removeFirst()
+    private func handleSecureDrafts(action: String, body: [String: Any]) {
+        guard pageReady, secureSessionStore.load() != nil,
+              let identity = navigationInbox.confirmedIdentity else { return }
+        do {
+            let drafts: [String: String]
+            if action == "secureDrafts.refresh" {
+                drafts = try secureDraftStore.read(identity: identity)
+            } else {
+                guard let key = body["key"] as? String else {
+                    throw SecureDraftStore.StorageError.invalid
+                }
+                let value: String?
+                if action == "secureDrafts.remove" {
+                    value = nil
+                } else {
+                    guard let text = body["value"] as? String else {
+                        throw SecureDraftStore.StorageError.invalid
+                    }
+                    value = text
+                }
+                drafts = try secureDraftStore.write(identity: identity, key: key, value: value)
             }
-            self.deliverPendingDeepLinks()
+            dispatchEvent(name: "maisonpilote:secure-drafts", detail: [
+                "identity": identity, "drafts": drafts,
+            ])
+        } catch {
+            let failure = error as? SecureDraftStore.StorageError ?? .unavailable
+            dispatchEvent(name: "maisonpilote:secure-drafts-error", detail: [
+                "identity": identity, "key": body["key"] as? String ?? "",
+                "message": failure.message,
+            ])
+        }
+    }
+
+    private func deliverPendingNavigation() {
+        guard pageReady, secureSessionStore.load() != nil,
+              inFlightNavigationID == nil,
+              let pending = navigationInbox.next() else { return }
+        inFlightNavigationID = pending.id
+        var detail: [String: Any] = pending.detail
+        detail["request_id"] = pending.id.uuidString.lowercased()
+        detail["opened_by_user"] = pending.openedByUser
+        if let deepLink = pending.detail["deep_link"] { detail["url"] = deepLink }
+        dispatchEvent(name: pending.eventName, detail: detail) { [weak self] delivered in
+            guard !delivered else { return }
+            // A delivery failure leaves the persistent item available for the next
+            // ready/login/network retry. Only navigation.ack removes the item.
+            if self?.inFlightNavigationID == pending.id {
+                self?.inFlightNavigationID = nil
+            }
         }
     }
 
@@ -562,7 +612,7 @@ extension WebViewStore: WKUIDelegate {
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
         let trusted = origin.protocol.lowercased() == "https"
-            && origin.host.lowercased() == AppEnvironment.trustedHost
+            && AppEnvironment.trustedHosts.contains(origin.host.lowercased())
             && (origin.port == 0 || origin.port == 443)
         guard trusted, frame.isMainFrame else {
             decisionHandler(.deny)
