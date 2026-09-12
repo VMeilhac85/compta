@@ -9,19 +9,12 @@ extension Notification.Name {
     )
 }
 
-struct PendingNativePush {
-    let id: UUID
-    let detail: [String: String]
-    let openedByUser: Bool
-}
-
 @MainActor
 final class MobilePushCoordinator {
     static let shared = MobilePushCoordinator()
 
     private let tokenStore = ApnsTokenStore.shared
     private(set) var currentToken: String?
-    private var pendingPushes: [PendingNativePush] = []
 
     private init() {
         currentToken = tokenStore.load()
@@ -33,10 +26,6 @@ final class MobilePushCoordinator {
 #else
         return "production"
 #endif
-    }
-
-    var pendingPush: PendingNativePush? {
-        pendingPushes.first
     }
 
     func requestAuthorization() {
@@ -84,32 +73,10 @@ final class MobilePushCoordinator {
         } else {
             normalized.removeValue(forKey: "deep_link")
         }
-        let pending = PendingNativePush(
-            id: UUID(),
-            detail: normalized,
-            openedByUser: openedByUser
-        )
-        if let notificationID = normalized["notification_id"],
-           let existingIndex = pendingPushes.firstIndex(where: {
-               $0.detail["notification_id"] == notificationID
-           }) {
-            if openedByUser && !pendingPushes[existingIndex].openedByUser {
-                pendingPushes[existingIndex] = pending
-            }
-        } else {
-            pendingPushes.append(pending)
-            if pendingPushes.count > 20 {
-                pendingPushes.removeFirst(pendingPushes.count - 20)
-            }
-        }
+        NativeNavigationInbox.shared.enqueuePush(detail: normalized, openedByUser: openedByUser)
         NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
     }
 
-    func acknowledge(pushID: UUID) {
-        guard let index = pendingPushes.firstIndex(where: { $0.id == pushID }) else { return }
-        pendingPushes.remove(at: index)
-        NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
-    }
 }
 
 final class MaisonPiloteAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
