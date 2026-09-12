@@ -135,7 +135,13 @@ final class ShareViewController: UIViewController {
         let batch = ShareInboxBatch(
             id: batchID,
             createdAtUTC: ISO8601DateFormatter().string(from: Date()),
-            files: files
+            files: files,
+            intakeResult: ShareInboxIntakeResult(
+                received: files.map { .init(name: $0.displayName) },
+                rejected: receipts.compactMap { receipt in
+                    receipt.failure.map { .init(name: receipt.name, reason: $0.message) }
+                }
+            )
         )
         do {
             let encoder = JSONEncoder()
