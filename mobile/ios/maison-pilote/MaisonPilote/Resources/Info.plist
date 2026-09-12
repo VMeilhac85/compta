@@ -41,6 +41,8 @@
     <string>$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)</string>
     <key>MaisonPiloteURLHost</key>
     <string>$(MAISON_PILOTE_URL_HOST)</string>
+    <key>MaisonPiloteCanonicalURLHost</key>
+    <string>$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)</string>
     <key>MaisonPiloteURLPath</key>
     <string>$(MAISON_PILOTE_URL_PATH)</string>
     <key>MaisonPiloteURLScheme</key>
@@ -96,6 +98,7 @@
     <key>WKAppBoundDomains</key>
     <array>
         <string>$(MAISON_PILOTE_URL_HOST)</string>
+        <string>$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)</string>
     </array>
 </dict>
 </plist>

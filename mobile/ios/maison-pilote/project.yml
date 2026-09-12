@@ -57,6 +57,7 @@ targets:
         LSApplicationCategoryType: public.app-category.business
         MaisonPiloteAppGroupIdentifier: "$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)"
         MaisonPiloteURLHost: "$(MAISON_PILOTE_URL_HOST)"
+        MaisonPiloteCanonicalURLHost: "$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)"
         MaisonPiloteURLPath: "$(MAISON_PILOTE_URL_PATH)"
         MaisonPiloteURLScheme: "$(MAISON_PILOTE_URL_SCHEME)"
         MaisonPiloteCustomURLScheme: "$(MAISON_PILOTE_CUSTOM_URL_SCHEME)"
@@ -87,6 +88,7 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         WKAppBoundDomains:
           - "$(MAISON_PILOTE_URL_HOST)"
+          - "$(MAISON_PILOTE_ASSOCIATED_DOMAIN)"
     entitlements:
       path: MaisonPilote/Resources/MaisonPilote.entitlements
     configFiles:
@@ -105,7 +107,6 @@ targets:
     dependencies:
       - target: MaisonPiloteShare
         embed: true
-      - target: MaisonPiloteWatch
       - sdk: WatchConnectivity.framework
 
   MaisonPiloteShare:
@@ -157,96 +158,6 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         SKIP_INSTALL: YES
 
-  MaisonPiloteWatch:
-    type: application.watchapp2
-    platform: watchOS
-    deploymentTarget: "9.4"
-    sources:
-      - path: WatchApp
-        excludes:
-          - Resources/Info.plist
-          - Resources/MaisonPiloteWatch.entitlements
-      - path: .generated/Assets.xcassets
-        buildPhase: resources
-    info:
-      path: WatchApp/Resources/Info.plist
-      properties:
-        CFBundleDevelopmentRegion: fr
-        CFBundleDisplayName: Maison Pilote
-        CFBundleExecutable: "$(EXECUTABLE_NAME)"
-        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
-        CFBundleInfoDictionaryVersion: "6.0"
-        CFBundleName: "$(PRODUCT_NAME)"
-        CFBundlePackageType: APPL
-        CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        WKCompanionAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER)"
-        WKWatchKitApp: true
-    entitlements:
-      path: WatchApp/Resources/MaisonPiloteWatch.entitlements
-    configFiles:
-      Debug: Config/Debug.xcconfig
-      Release: Config/Release.xcconfig
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp"
-        PRODUCT_NAME: Maison Pilote
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        CODE_SIGN_ENTITLEMENTS: WatchApp/Resources/MaisonPiloteWatch.entitlements
-        PROVISIONING_PROFILE_SPECIFIER: "$(MAISON_PILOTE_WATCH_PROVISIONING_PROFILE_SPECIFIER)"
-        GENERATE_INFOPLIST_FILE: NO
-        SKIP_INSTALL: YES
-        TARGETED_DEVICE_FAMILY: "4"
-    dependencies:
-      - target: MaisonPiloteWatchExtension
-
-  MaisonPiloteWatchExtension:
-    type: watchkit2-extension
-    platform: watchOS
-    deploymentTarget: "9.4"
-    sources:
-      - path: WatchExtension
-        excludes:
-          - Resources/Info.plist
-          - Resources/MaisonPiloteWatchExtension.entitlements
-          - Resources/PrivacyInfo.xcprivacy
-      - path: WatchExtension/Resources/PrivacyInfo.xcprivacy
-        buildPhase: resources
-    info:
-      path: WatchExtension/Resources/Info.plist
-      properties:
-        CFBundleDevelopmentRegion: fr
-        CFBundleDisplayName: Maison Pilote
-        CFBundleExecutable: "$(EXECUTABLE_NAME)"
-        CFBundleIdentifier: "$(PRODUCT_BUNDLE_IDENTIFIER)"
-        CFBundleInfoDictionaryVersion: "6.0"
-        CFBundleName: "$(PRODUCT_NAME)"
-        CFBundlePackageType: XPC!
-        CFBundleShortVersionString: "$(MARKETING_VERSION)"
-        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
-        NSExtension:
-          NSExtensionAttributes:
-            WKAppBundleIdentifier: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp"
-          NSExtensionPointIdentifier: com.apple.watchkit
-        WKRunsIndependentlyOfCompanionApp: false
-    entitlements:
-      path: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
-    configFiles:
-      Debug: Config/Debug.xcconfig
-      Release: Config/Release.xcconfig
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: "$(MAISON_PILOTE_BUNDLE_IDENTIFIER).watchkitapp.watchkitextension"
-        PRODUCT_NAME: Maison Pilote Watch
-        APPLICATION_EXTENSION_API_ONLY: YES
-        CODE_SIGN_ENTITLEMENTS: WatchExtension/Resources/MaisonPiloteWatchExtension.entitlements
-        PROVISIONING_PROFILE_SPECIFIER: "$(MAISON_PILOTE_WATCH_EXTENSION_PROVISIONING_PROFILE_SPECIFIER)"
-        GENERATE_INFOPLIST_FILE: NO
-        SKIP_INSTALL: YES
-        TARGETED_DEVICE_FAMILY: "4"
-    dependencies:
-      - sdk: WatchConnectivity.framework
 
 schemes:
   MaisonPilote:
@@ -254,8 +165,6 @@ schemes:
       targets:
         MaisonPilote: all
         MaisonPiloteShare: all
-        MaisonPiloteWatch: all
-        MaisonPiloteWatchExtension: all
     run:
       config: Debug
     profile:
