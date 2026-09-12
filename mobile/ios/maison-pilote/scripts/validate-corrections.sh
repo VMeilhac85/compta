@@ -79,6 +79,9 @@ struct NativeCorrectionValidation {
             acknowledged.enqueue(url: URL(string: "https://maisonpilote.fr/documents?id=\\(index)")!)
         }
         let first = acknowledged.next()!.id
+        let following = acknowledged.next(excluding: [first])
+        precondition(following != nil && following?.id != first,
+                     "Unacknowledged first destination cannot block later navigation")
         acknowledged.enqueuePush(detail: ["notification_id": "background"], openedByUser: false)
         precondition(acknowledged.next()?.id == first, "Background push never evicts a requested opening")
         var retained = 0

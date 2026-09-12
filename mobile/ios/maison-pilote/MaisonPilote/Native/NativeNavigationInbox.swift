@@ -128,10 +128,10 @@ final class NativeNavigationInbox {
         persist()
     }
 
-    func next() -> Pending? {
+    func next(excluding deliveredIDs: Set<UUID> = []) -> Pending? {
         guard let identity = confirmedIdentity else { return nil }
         prune()
-        return state.pending.first { $0.identity == identity }
+        return state.pending.first { $0.identity == identity && !deliveredIDs.contains($0.id) }
     }
 
     @discardableResult

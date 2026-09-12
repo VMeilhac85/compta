@@ -22,7 +22,7 @@ final class WebViewStore: NSObject, ObservableObject {
     private var pageReady = false
     private let navigationInbox = NativeNavigationInbox.shared
     private let secureDraftStore = SecureDraftStore()
-    private var inFlightNavigationID: UUID?
+    private var deliveredNavigationIDs = Set<UUID>()
 
     override init() {
         let contentController = WKUserContentController()
@@ -127,7 +127,7 @@ final class WebViewStore: NSObject, ObservableObject {
 
     func applicationDidBecomeActive() {
         pushCoordinator.registerIfAuthorized()
-        inFlightNavigationID = nil
+        deliveredNavigationIDs.removeAll()
         guard pageReady else { return }
         deliverPendingNativePayloads()
     }
@@ -163,7 +163,7 @@ final class WebViewStore: NSObject, ObservableObject {
                         deviceID: body["deviceId"] as? String
                       ) else { return }
                 navigationInbox.suspendIdentity()
-                inFlightNavigationID = nil
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(secureSessionStore.load())
                 if pageReady { deliverShareInbox() }
             case "bindDevice":
@@ -176,7 +176,7 @@ final class WebViewStore: NSObject, ObservableObject {
                 } else {
                     navigationInbox.clear()
                 }
-                inFlightNavigationID = nil
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(nil)
                 if pageReady { deliverShareInbox() }
             default:
@@ -207,26 +207,29 @@ final class WebViewStore: NSObject, ObservableObject {
         case "secureDrafts.refresh", "secureDrafts.write", "secureDrafts.remove":
             handleSecureDrafts(action: action, body: body)
         case "navigation.bindIdentity":
+            let previousIdentity = navigationInbox.confirmedIdentity
             guard secureSessionStore.load() != nil,
                   let userID = body["user_id"] as? String,
                   navigationInbox.bindIdentity(userID) else { return }
             handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
-            inFlightNavigationID = nil
+            if previousIdentity != navigationInbox.confirmedIdentity {
+                deliveredNavigationIDs.removeAll()
+            }
             deliverPendingNavigation()
         case "navigation.ack":
             guard secureSessionStore.load() != nil,
                   body["outcome"] as? String == "completed",
                   let rawID = correlationID(body["request_id"]),
                   let id = UUID(uuidString: rawID),
-                  inFlightNavigationID == id,
+                  deliveredNavigationIDs.contains(id),
                   navigationInbox.acknowledge(id: id) else { return }
-            inFlightNavigationID = nil
+            deliveredNavigationIDs.remove(id)
             deliverPendingNavigation()
         case "navigation.retry":
-            inFlightNavigationID = nil
+            deliveredNavigationIDs.removeAll()
             deliverPendingNavigation()
         case "ready":
-            inFlightNavigationID = nil
+            deliveredNavigationIDs.removeAll()
             pageReady = true
             handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
             deliverPendingNativePayloads()
@@ -437,20 +440,20 @@ final class WebViewStore: NSObject, ObservableObject {
     }
 
     private func deliverPendingNavigation() {
-        guard pageReady, secureSessionStore.load() != nil,
-              inFlightNavigationID == nil,
-              let pending = navigationInbox.next() else { return }
-        inFlightNavigationID = pending.id
-        var detail: [String: Any] = pending.detail
-        detail["request_id"] = pending.id.uuidString.lowercased()
-        detail["opened_by_user"] = pending.openedByUser
-        if let deepLink = pending.detail["deep_link"] { detail["url"] = deepLink }
-        dispatchEvent(name: pending.eventName, detail: detail) { [weak self] delivered in
-            guard !delivered else { return }
-            // A delivery failure leaves the persistent item available for the next
-            // ready/login/network retry. Only navigation.ack removes the item.
-            if self?.inFlightNavigationID == pending.id {
-                self?.inFlightNavigationID = nil
+        guard pageReady, secureSessionStore.load() != nil else { return }
+        // The runtime serializes these events. An unacknowledged/revoked first
+        // destination must not prevent a later, valid opening from reaching it.
+        while let pending = navigationInbox.next(excluding: deliveredNavigationIDs) {
+            deliveredNavigationIDs.insert(pending.id)
+            var detail: [String: Any] = pending.detail
+            detail["request_id"] = pending.id.uuidString.lowercased()
+            detail["opened_by_user"] = pending.openedByUser
+            if let deepLink = pending.detail["deep_link"] { detail["url"] = deepLink }
+            dispatchEvent(name: pending.eventName, detail: detail) { [weak self] delivered in
+                guard !delivered else { return }
+                // Only navigation.ack removes the persistent item. Transport
+                // failure makes this UUID eligible for the next explicit retry.
+                self?.deliveredNavigationIDs.remove(pending.id)
             }
         }
     }
