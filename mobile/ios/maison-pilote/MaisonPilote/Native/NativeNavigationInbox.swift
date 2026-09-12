@@ -61,14 +61,14 @@ final class NativeNavigationInbox {
     }
 
     func enqueue(url: URL) {
-        guard restoreIfNeeded() else { return }
+        guard restoreIfNeeded(), url.absoluteString.utf8.count <= 8_192 else { return }
         guard !state.pending.contains(where: {
             !$0.isPush && $0.identity == state.lastIdentity
                 && $0.detail["url"] == url.absoluteString
         }) else { return }
         append(Pending(
             id: UUID(), identity: state.lastIdentity, createdAt: Date(),
-            detail: ["url": String(url.absoluteString.prefix(2_048))],
+            detail: ["url": url.absoluteString],
             openedByUser: true, isPush: false
         ))
     }
@@ -77,7 +77,7 @@ final class NativeNavigationInbox {
         // APNs may arrive before the first unlock. Do not invent a new anonymous
         // owner when protected storage is temporarily unavailable; the system
         // notification remains available and its explicit opening is redelivered.
-        guard restoreIfNeeded() else { return }
+        guard restoreIfNeeded(), !detail.isEmpty else { return }
         if let notificationID = detail["notification_id"],
            let index = state.pending.firstIndex(where: {
                $0.isPush && $0.identity == state.lastIdentity
@@ -148,7 +148,9 @@ final class NativeNavigationInbox {
     private func append(_ pending: Pending) {
         prune()
         if state.pending.count >= maximumItems {
-            let index = state.pending.firstIndex(where: { !$0.openedByUser }) ?? 0
+            let backgroundIndex = state.pending.firstIndex(where: { !$0.openedByUser })
+            if !pending.openedByUser && backgroundIndex == nil { return }
+            let index = backgroundIndex ?? 0
             state.pending.remove(at: index)
         }
         state.pending.append(pending)

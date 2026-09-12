@@ -34,6 +34,7 @@ jobs:
         run: |
           if ! command -v xcodegen >/dev/null 2>&1; then brew install xcodegen; fi
           export IOS_CORRECTIONS_CAPTURE_DIRECTORY="$RUNNER_TEMP/mobile-corrections-ios-captures"
+          bash mobile/ios/maison-pilote/scripts/validate-corrections.sh
           bash mobile/ios/maison-pilote/scripts/capture-corrections.sh
       - name: Conserver les captures et leur provenance
         if: always()
