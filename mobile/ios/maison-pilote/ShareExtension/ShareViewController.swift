@@ -27,7 +27,7 @@ final class ShareViewController: UIViewController {
             case .saveFailed: return "Le partage n’a pas pu être enregistré sur cet iPhone."
             case .cancelled: return "La préparation a été interrompue. Le fichier reste dans l’application d’origine."
             case .timedOut: return "Le fournisseur n’a pas rendu ce fichier disponible après 90 secondes. Réessayez avec une connexion disponible."
-            case .fileTooLarge: return "Ce fichier dépasse la limite de 100 Mio."
+            case .fileTooLarge: return "Ce fichier dépasse la limite de 20 Mio."
             case .inboxFull: return "L’espace réservé aux partages en attente est plein. Transmettez ou retirez des partages dans Maison Pilote."
             case .imageConversion: return "La photo HEIC n’a pas pu être convertie. Son original reste dans l’application d’origine."
             }

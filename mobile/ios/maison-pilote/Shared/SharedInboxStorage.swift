@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 /// Shared by the extension and the app. Final, unsent batches never expire.
 enum SharedInboxStorage {
-    static let maximumFileBytes: Int64 = 100 * 1024 * 1024
+    static let maximumFileBytes: Int64 = 20 * 1024 * 1024
     static let maximumInboxBytes: Int64 = 1024 * 1024 * 1024
 
     enum Failure: Error {
@@ -12,7 +12,7 @@ enum SharedInboxStorage {
         var message: String {
             switch self {
             case .unavailable: return "Le stockage protégé de cet iPhone est indisponible."
-            case .fileTooLarge: return "Ce fichier dépasse la limite de 100 Mio."
+            case .fileTooLarge: return "Ce fichier dépasse la limite de 20 Mio."
             case .inboxFull: return "Les fichiers en attente occupent 1 Gio. Transmettez ou retirez des partages avant de continuer."
             case .invalidImage: return "Cette photo n’a pas pu être convertie en JPEG. Le fichier original reste dans l’application d’origine."
             case .unsafeFile: return "Ce fichier ne peut pas être copié en sécurité."
