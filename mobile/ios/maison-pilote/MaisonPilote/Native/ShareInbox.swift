@@ -11,6 +11,7 @@ struct ShareInboxPublicBatch: Encodable {
     let id: String
     let createdAtUTC: String
     let files: [ShareInboxPublicFile]
+    let intakeResult: ShareInboxIntakeResult?
 }
 
 struct ShareInboxChunk {
@@ -102,7 +103,8 @@ final class ShareInbox {
                         mimeType: file.mimeType,
                         size: file.size
                     )
-                }
+                },
+                intakeResult: batch.intakeResult
             )
         }
     }
