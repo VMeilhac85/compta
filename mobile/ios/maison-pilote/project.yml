@@ -56,6 +56,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         LSApplicationCategoryType: public.app-category.business
         MaisonPiloteAppGroupIdentifier: "$(MAISON_PILOTE_APP_GROUP_IDENTIFIER)"
+        MaisonPiloteReleaseChannel: "$(MAISON_PILOTE_RELEASE_CHANNEL)"
         MaisonPiloteURLHost: "$(MAISON_PILOTE_URL_HOST)"
         MaisonPiloteCanonicalURLHost: "$(MAISON_PILOTE_CANONICAL_ASSOCIATED_DOMAIN)"
         MaisonPiloteURLPath: "$(MAISON_PILOTE_URL_PATH)"
