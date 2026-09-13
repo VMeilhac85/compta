@@ -30,13 +30,14 @@ final class NativeCaptureStore {
     init() { SharedInboxStorage.maintain() }
 
     static func context(scope: String, dossierID: Int64, ownerID: String,
-                        type: String = "shared_file", contextID: Int64? = nil, folderID: Int64? = nil) throws -> ShareInboxContext {
+                        type: String = "shared_file", contextID: Int64? = nil, folderID: Int64? = nil,
+                        allowNoDossier: Bool = false) throws -> ShareInboxContext {
         let parts = scope.split(separator: ":", omittingEmptySubsequences: false)
         let types = ["missing_item", "task", "expense_report", "absence", "mileage_registration",
                      "quick_action", "documents", "documents_folder", "shared_file", "shared_file_folder", "personal_documents"]
         guard scope.utf8.count <= 256, parts.count == 4, String(parts[0]) == ownerID,
               !scope.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
-              Int64(parts[1]).map({ $0 > 0 }) == true, dossierID > 0, Int64(parts[3]) == dossierID,
+              Int64(parts[1]).map({ $0 > 0 }) == true, dossierID >= (allowNoDossier ? 0 : 1), Int64(parts[3]) == dossierID,
               types.contains(type), contextID.map({ $0 > 0 }) ?? true, folderID.map({ $0 > 0 }) ?? true else {
             throw Failure.contextChanged
         }
@@ -72,14 +73,17 @@ final class NativeCaptureStore {
                   !filename.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
                   let mime = body["mimeType"] as? String, mime.range(of: "^[a-zA-Z0-9!#$&^_.+-]+/[a-zA-Z0-9!#$&^_.+-]+$", options: .regularExpression) != nil,
                   let total = integer(body["totalSize"]), (1...SharedInboxStorage.maximumFileBytes).contains(total) else { throw Failure.invalid }
-            let context = try Self.context(scope: scope, dossierID: dossierID, ownerID: ownerID,
-                type: body["contextType"] as? String ?? "quick_action", contextID: integer(body["contextId"]), folderID: integer(body["folderId"]))
-            let purpose = body["purpose"] as? String ?? "capture"
+            let purpose = (body["purpose"] as? String) ?? "capture"
             guard ["capture", "image_conversion"].contains(purpose) else { throw Failure.invalid }
+            let type = (body["contextType"] as? String) ?? "quick_action"
+            let context = try Self.context(scope: scope, dossierID: dossierID, ownerID: ownerID, type: type,
+                contextID: integer(body["contextId"]).flatMap { $0 > 0 ? $0 : nil },
+                folderID: integer(body["folderId"]).flatMap { $0 > 0 ? $0 : nil },
+                allowNoDossier: purpose == "image_conversion" || type == "personal_documents")
             let existing = try? load(at: manifestURL)
             let manifest = Manifest(batchID: id, fileID: existing?.fileID ?? UUID().uuidString.lowercased(),
                 fileName: filename, mimeType: mime, totalSize: total, context: context, purpose: purpose,
-                forceJPEG: body["forceJPEG"] as? Bool ?? false)
+                forceJPEG: (body["forceJPEG"] as? Bool) ?? false)
             if let existing {
                 guard existing == manifest else { throw Failure.contextChanged }
                 return ["batch_id": id, "next_offset": try size(of: payloadURL)]
@@ -112,6 +116,7 @@ final class NativeCaptureStore {
             return ["batch_id": id, "next_offset": offset + Int64(data.count)]
         }
         guard action == "capture.finish", try size(of: payloadURL) == manifest.totalSize else { throw Failure.incomplete }
+        try SharedInboxStorage.validateSpace(for: manifest.totalSize)
         try SharedInboxStorage.createProtectedDirectory(finalDirectory)
         var name = manifest.fileName
         var mime = manifest.mimeType

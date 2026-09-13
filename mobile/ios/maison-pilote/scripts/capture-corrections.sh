@@ -54,7 +54,7 @@ extension ShareViewController {
     }
 }
 ''')
-    for name in ['ShareInboxModels.swift', 'SharedContainer.swift']:
+    for name in ['ShareInboxModels.swift', 'SharedContainer.swift', 'SharedInboxStorage.swift']:
         shutil.copy2(project / 'Shared' / name, native / name)
     (native / 'CaptureApp.swift').write_text('''
 import UIKit

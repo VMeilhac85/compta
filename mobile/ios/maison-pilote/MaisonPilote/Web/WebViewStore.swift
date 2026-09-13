@@ -320,7 +320,7 @@ final class WebViewStore: NSObject, ObservableObject {
         case "openExternal":
             openExternal(body: body)
         case "openSettings":
-            let kind = body["kind"] as? String ?? "application"
+            let kind = (body["kind"] as? String) ?? "application"
             let rawURL = kind == "notifications" ? UIApplication.openNotificationSettingsURLString : UIApplication.openSettingsURLString
             guard let url = URL(string: rawURL) else { return }
             openSystemURL(url, requestID: correlationID(body["request_id"]) ?? "")
@@ -359,7 +359,7 @@ final class WebViewStore: NSObject, ObservableObject {
             guard secureSessionStore.load() != nil, let ownerID = navigationInbox.confirmedIdentity,
                   let id = body["batch_id"] as? String, let scope = body["identity_scope"] as? String,
                   let dossierID = exactInteger(body["dossier_id"]) else { throw NativeCaptureStore.Failure.invalid }
-            let type = body["context_type"] as? String ?? "shared_file"
+            let type = (body["context_type"] as? String) ?? "shared_file"
             guard ["shared_file", "shared_file_folder"].contains(type) else { throw NativeCaptureStore.Failure.invalid }
             let folderID = exactInteger(body["folder_id"]).flatMap { $0 > 0 ? $0 : nil }
             let context = try NativeCaptureStore.context(scope: scope, dossierID: dossierID, ownerID: ownerID,

@@ -272,8 +272,9 @@ final class ShareViewController: UIViewController {
             activeImport = operation
             let initialStatus = statusLabel.text ?? "Préparation du fichier"
             progressTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self, weak operation] _ in
-                guard let operation, let fraction = operation.fraction else { return }
+                guard let operation, operation.isPending, let fraction = operation.fraction else { return }
                 Task { @MainActor in
+                    guard operation.isPending else { return }
                     self?.statusLabel.text = initialStatus + " - \(Int(max(0, min(1, fraction)) * 100)) %"
                 }
             }
@@ -382,6 +383,7 @@ final class ShareViewController: UIViewController {
         statusLabel.text = message
         closeButton.isEnabled = true
         UIAccessibility.post(notification: .screenChanged, argument: titleLabel)
+        if closeRequested { closeReceipt() }
     }
 
     @objc private func closeReceipt() {

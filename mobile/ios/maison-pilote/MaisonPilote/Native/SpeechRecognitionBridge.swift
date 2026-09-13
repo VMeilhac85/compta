@@ -35,7 +35,7 @@ final class SpeechRecognitionBridge: NSObject {
         }
     }
 
-    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+    deinit { observers.forEach { NotificationCenter.default.removeObserver($0) } }
 
     func start(language: String, requestID: String = "") {
         cancel(notify: false)
