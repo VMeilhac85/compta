@@ -20,7 +20,20 @@ final class WebViewStore: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var started = false
     private var pageReady = false
-    private var pendingDeepLinks: [URL] = []
+    private var contentVisible = false
+    private var nativePresentationVisible = false
+
+    private var effectiveContentVisible: Bool {
+        contentVisible && !nativePresentationVisible
+    }
+    private let navigationInbox = NativeNavigationInbox.shared
+    private let secureDraftStore = SecureDraftStore()
+    private let nativeCaptureStore = NativeCaptureStore()
+    private var deliveredNavigationIDs = Set<UUID>()
+
+    private static var homeTextScale: Double {
+        Double(UIFont.preferredFont(forTextStyle: .body).pointSize / 17)
+    }
 
     override init() {
         let contentController = WKUserContentController()
@@ -33,7 +46,8 @@ final class WebViewStore: NSObject, ObservableObject {
         contentController.addUserScript(WKUserScript(
             source: NativeBridgeScript.documentStart(
                 secureSession: SecureSessionStore.shared.load(),
-                pendingSharedFiles: !ShareInbox().publicBatches().isEmpty
+                pendingSharedFiles: !ShareInbox().publicBatches().isEmpty,
+                homeTextScale: Self.homeTextScale
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -64,14 +78,25 @@ final class WebViewStore: NSObject, ObservableObject {
         outgoingDocumentBridge.delegate = self
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        webView.allowsBackForwardNavigationGestures = true
+        // The shared runtime owns the route stack and its visible Back control.
+        webView.allowsBackForwardNavigationGestures = false
         webView.scrollView.keyboardDismissMode = .interactive
-        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        // SwiftUI already constrains the web view to the usable safe area.
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         NotificationCenter.default.publisher(for: .maisonPilotePushStateChanged)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard self?.pageReady == true else { return }
                     self?.deliverPendingNativePayloads()
+                }
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    // Actualise aussi les scripts réinjectés après un rechargement.
+                    self.refreshSecureSessionInjection(self.secureSessionStore.load())
                 }
             }
             .store(in: &cancellables)
@@ -105,30 +130,37 @@ final class WebViewStore: NSObject, ObservableObject {
     func openDeepLink(_ candidate: URL) {
         guard let url = AppEnvironment.normalizedDeepLink(candidate) else { return }
         if let signatureURL = AppEnvironment.signatureExperienceURL(url) {
-            pendingDeepLinks.removeAll(where: AppEnvironment.isSignatureURL)
             errorMessage = nil
             pageReady = false
             started = true
             load(signatureURL)
             return
         }
-        if !AppEnvironment.isShellURL(url), !pendingDeepLinks.contains(url) {
-            pendingDeepLinks.append(url)
-            if pendingDeepLinks.count > 20 {
-                pendingDeepLinks.removeFirst(pendingDeepLinks.count - 20)
-            }
+        if !AppEnvironment.isShellURL(url) {
+            navigationInbox.enqueue(url: url)
         }
         errorMessage = nil
         if !started {
             started = true
             load(AppEnvironment.initialURL)
         } else if pageReady {
-            deliverPendingDeepLinks()
+            deliverPendingNavigation()
         }
     }
 
+    func updateContentVisibility(_ visible: Bool) {
+        guard contentVisible != visible else { return }
+        contentVisible = visible
+        // Keep future documents consistent with the current native privacy shield.
+        replaceDocumentScripts(secureSessionStore.load())
+        applyContentVisibility()
+    }
+
     func applicationDidBecomeActive() {
+        applyContentVisibility()
+        applyHomeTextScale()
         pushCoordinator.registerIfAuthorized()
+        deliveredNavigationIDs.removeAll()
         guard pageReady else { return }
         deliverPendingNativePayloads()
     }
@@ -138,11 +170,15 @@ final class WebViewStore: NSObject, ObservableObject {
               message.frameInfo.request.url.map(AppEnvironment.isTrusted) == true,
               let body = message.body as? [String: Any],
               let action = body["action"] as? String else { return }
+        let isShell = message.frameInfo.request.url.map(AppEnvironment.isShellURL) == true
+        guard isShell || message.name == "outgoingDocument"
+                || (message.name == "maisonPiloteNative" && ["openExternal", "openSettings"].contains(action)) else { return }
 
         if message.name == "speechRecognition" {
             switch action {
             case "start":
-                speechBridge.start(language: body["language"] as? String ?? "fr-FR")
+                speechBridge.start(language: body["language"] as? String ?? "fr-FR",
+                                   requestID: correlationID(body["request_id"]) ?? "")
             case "cancel":
                 speechBridge.cancel()
             default:
@@ -163,6 +199,8 @@ final class WebViewStore: NSObject, ObservableObject {
                         expiresAt: body["expiresAt"] as? String,
                         deviceID: body["deviceId"] as? String
                       ) else { return }
+                navigationInbox.suspendIdentity()
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(secureSessionStore.load())
                 if pageReady { deliverShareInbox() }
             case "bindDevice":
@@ -170,6 +208,12 @@ final class WebViewStore: NSObject, ObservableObject {
                       secureSessionStore.bindDeviceID(deviceID) else { return }
             case "clear":
                 secureSessionStore.clear()
+                if body["preserve_navigation"] as? Bool == true {
+                    navigationInbox.suspendIdentity()
+                } else {
+                    navigationInbox.clear()
+                }
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(nil)
                 if pageReady { deliverShareInbox() }
             default:
@@ -197,8 +241,41 @@ final class WebViewStore: NSObject, ObservableObject {
         }
 
         switch action {
+        case "capture.begin", "capture.append", "capture.finish", "capture.cancel":
+            handleCapture(action: action, body: body)
+        case "shareInbox.bindContext":
+            handleShareContext(body)
+        case "secureDrafts.refresh", "secureDrafts.write", "secureDrafts.remove":
+            handleSecureDrafts(action: action, body: body)
+        case "navigation.bindIdentity":
+            let previousIdentity = navigationInbox.confirmedIdentity
+            guard secureSessionStore.load() != nil,
+                  let userID = body["user_id"] as? String,
+                  navigationInbox.bindIdentity(userID) else { return }
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
+            if previousIdentity != navigationInbox.confirmedIdentity {
+                deliveredNavigationIDs.removeAll()
+            }
+            deliverPendingNavigation()
+            deliverShareInbox()
+        case "navigation.ack":
+            guard secureSessionStore.load() != nil,
+                  body["outcome"] as? String == "completed",
+                  let rawID = correlationID(body["request_id"]),
+                  let id = UUID(uuidString: rawID),
+                  deliveredNavigationIDs.contains(id),
+                  navigationInbox.acknowledge(id: id) else { return }
+            deliveredNavigationIDs.remove(id)
+            deliverPendingNavigation()
+        case "navigation.retry":
+            deliveredNavigationIDs.removeAll()
+            deliverPendingNavigation()
         case "ready":
+            deliveredNavigationIDs.removeAll()
             pageReady = true
+            applyContentVisibility()
+            applyHomeTextScale()
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
             deliverPendingNativePayloads()
         case "pushNotifications.requestAuthorization":
             pushCoordinator.requestAuthorization()
@@ -210,6 +287,7 @@ final class WebViewStore: NSObject, ObservableObject {
         case "shareInbox.discard":
             guard let id = body["id"] as? String else { return }
             let discarded = secureSessionStore.load() != nil
+                && navigationInbox.confirmedIdentity.map({ shareInbox.canAccess(batchID: id, ownerID: $0, requireContext: false) }) == true
                 && shareInbox.discard(batchID: id)
             if let requestID = correlationID(body["request_id"]) {
                 var detail: [String: Any] = [
@@ -235,19 +313,101 @@ final class WebViewStore: NSObject, ObservableObject {
             guard let id = body["id"] as? String,
                   SharedContainer.pendingAssistantRequest()?.id == id else { return }
             SharedContainer.clearPendingAssistantRequest()
+        case "notification.context":
+            pushCoordinator.displayedContextKey = body["key"] as? String
+            pushCoordinator.displayedContextKeys = Set(body["keys"] as? [String] ?? [])
+            pushCoordinator.contentVisible = effectiveContentVisible
         case "openExternal":
-            guard let rawURL = body["url"] as? String,
-                  let url = URL(string: rawURL),
-                  AppEnvironment.canOpenExternally(url),
-                  !AppEnvironment.isTrusted(url) else { return }
-            UIApplication.shared.open(url)
+            openExternal(body: body)
+        case "openSettings":
+            let kind = body["kind"] as? String ?? "application"
+            let rawURL = kind == "notifications" ? UIApplication.openNotificationSettingsURLString : UIApplication.openSettingsURLString
+            guard let url = URL(string: rawURL) else { return }
+            openSystemURL(url, requestID: correlationID(body["request_id"]) ?? "")
         default:
             break
         }
     }
 
+    private func openExternal(body: [String: Any]) {
+        let requestID = correlationID(body["request_id"]) ?? ""
+        guard let raw = body["url"] as? String, !raw.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              let url = URL(string: raw), AppEnvironment.canOpenExternally(url), !AppEnvironment.isShellURL(url) else {
+            dispatchEvent(name: "maisonpilote:native-open-result", detail: [
+                "request_id": requestID, "success": false,
+                "error": ["code": "unsupported_url", "message": "Ce lien ne peut pas être ouvert sur cet iPhone."],
+            ])
+            return
+        }
+        openSystemURL(url, requestID: requestID)
+    }
+
+    private func openSystemURL(_ url: URL, requestID: String) {
+        UIApplication.shared.open(url, options: [:]) { [weak self] success in
+            Task { @MainActor in
+                var detail: [String: Any] = ["request_id": requestID, "success": success]
+                if !success { detail["error"] = ["code": "application_unavailable",
+                    "message": "Aucune application disponible ne peut ouvrir ce lien sur cet iPhone."] }
+                self?.dispatchEvent(name: "maisonpilote:native-open-result", detail: detail)
+            }
+        }
+    }
+
+    private func handleShareContext(_ body: [String: Any]) {
+        let requestID = correlationID(body["request_id"]) ?? ""
+        do {
+            guard secureSessionStore.load() != nil, let ownerID = navigationInbox.confirmedIdentity,
+                  let id = body["batch_id"] as? String, let scope = body["identity_scope"] as? String,
+                  let dossierID = exactInteger(body["dossier_id"]) else { throw NativeCaptureStore.Failure.invalid }
+            let type = body["context_type"] as? String ?? "shared_file"
+            guard ["shared_file", "shared_file_folder"].contains(type) else { throw NativeCaptureStore.Failure.invalid }
+            let folderID = exactInteger(body["folder_id"]).flatMap { $0 > 0 ? $0 : nil }
+            let context = try NativeCaptureStore.context(scope: scope, dossierID: dossierID, ownerID: ownerID,
+                                                       type: type, folderID: folderID)
+            let batch = try shareInbox.bindContext(batchID: id, context: context)
+            dispatchEvent(name: "maisonpilote:native-share-bind-result", detail: [
+                "request_id": requestID, "success": true, "batch_id": id,
+                "batch": try JSONSerialization.jsonObject(with: JSONEncoder().encode(batch)),
+            ])
+            deliverShareInbox()
+        } catch {
+            dispatchEvent(name: "maisonpilote:native-share-bind-result", detail: [
+                "request_id": requestID, "success": false,
+                "error": ["code": "context_not_bound", "message": "Le compte ou l’entreprise de destination n’a pas pu être confirmé. Le partage reste sur cet iPhone."],
+            ])
+        }
+    }
+
+    private func handleCapture(action: String, body: [String: Any]) {
+        let requestID = correlationID(body["requestId"]) ?? ""
+        do {
+            guard secureSessionStore.load() != nil, let ownerID = navigationInbox.confirmedIdentity else {
+                throw NativeCaptureStore.Failure.contextChanged
+            }
+            var result = try nativeCaptureStore.handle(action: action, body: body, ownerID: ownerID)
+            result["request_id"] = requestID
+            result["success"] = true
+            dispatchEvent(name: "maisonpilote:native-capture-result", detail: result)
+            if action == "capture.finish", (result["batch"] as? [String: Any])?["purpose"] as? String != "image_conversion" {
+                deliverShareInbox()
+            }
+        } catch {
+            let message = (error as? NativeCaptureStore.Failure)?.message
+                ?? (error as? SharedInboxStorage.Failure)?.message
+                ?? "La capture n’a pas pu être conservée sur cet iPhone. Vos pages restent disponibles à l’écran."
+            var detail: [String: Any] = ["request_id": requestID, "success": false,
+                "error": ["code": "capture_failed", "message": message]]
+            if let captureError = error as? NativeCaptureStore.Failure, case .offset(let expected) = captureError {
+                detail["expected_offset"] = expected
+            }
+            dispatchEvent(name: "maisonpilote:native-capture-result", detail: detail)
+        }
+    }
+
     private func load(_ url: URL) {
         guard AppEnvironment.isTrusted(url) else { return }
+        // Signature documents are real web pages outside the runtime route stack.
+        webView.allowsBackForwardNavigationGestures = AppEnvironment.isSignatureURL(url)
         var request = URLRequest(url: url)
         request.cachePolicy = .useProtocolCachePolicy
         request.timeoutInterval = 60
@@ -255,11 +415,11 @@ final class WebViewStore: NSObject, ObservableObject {
     }
 
     private func deliverPendingNativePayloads() {
+        dispatchEvent(name: "maisonpilote:push-state", detail: pushCoordinator.publicState)
         deliverApnsToken()
-        deliverPendingPush()
         deliverPendingAssistantRequest()
         deliverShareInbox()
-        deliverPendingDeepLinks()
+        deliverPendingNavigation()
     }
 
     private func deliverApnsToken() {
@@ -272,24 +432,6 @@ final class WebViewStore: NSObject, ObservableObject {
                 "environment": pushCoordinator.environment,
             ]
         )
-    }
-
-    private func deliverPendingPush() {
-        guard let push = pushCoordinator.pendingPush else { return }
-        var detail: [String: Any] = push.detail
-        detail["opened_by_user"] = push.openedByUser
-        let eventName = push.openedByUser && push.detail["deep_link"] != nil
-            ? "maisonpilote:deep-link"
-            : "maisonpilote:push-notification"
-        if let deepLink = push.detail["deep_link"] {
-            detail["url"] = deepLink
-        }
-        dispatchEvent(name: eventName, detail: detail) { [weak self] delivered in
-            guard delivered else { return }
-            Task { @MainActor [weak self] in
-                self?.pushCoordinator.acknowledge(pushID: push.id)
-            }
-        }
     }
 
     private func deliverPendingAssistantRequest() {
@@ -308,7 +450,7 @@ final class WebViewStore: NSObject, ObservableObject {
     private func deliverShareInbox() {
         let batches: [ShareInboxPublicBatch] = secureSessionStore.load() == nil
             ? []
-            : shareInbox.publicBatches()
+            : shareInbox.publicBatches(ownerID: navigationInbox.confirmedIdentity)
         guard let payload = try? JSONEncoder().encode(batches),
               let object = try? JSONSerialization.jsonObject(with: payload) else { return }
         dispatchEvent(
@@ -325,6 +467,8 @@ final class WebViewStore: NSObject, ObservableObject {
         }
         do {
             guard let batchID = body["batch_id"] as? String,
+                  let ownerID = navigationInbox.confirmedIdentity,
+                  shareInbox.canAccess(batchID: batchID, ownerID: ownerID),
                   let fileID = body["file_id"] as? String,
                   let offset = exactInteger(body["offset"]),
                   let requestedLength = exactInteger(body["length"]),
@@ -391,17 +535,64 @@ final class WebViewStore: NSObject, ObservableObject {
         return number.int64Value
     }
 
-    private func deliverPendingDeepLinks() {
-        guard pageReady, let url = pendingDeepLinks.first else { return }
-        dispatchEvent(
-            name: "maisonpilote:deep-link",
-            detail: ["url": url.absoluteString]
-        ) { [weak self] success in
-            guard success, let self else { return }
-            if self.pendingDeepLinks.first == url {
-                self.pendingDeepLinks.removeFirst()
+    private func handleSecureDrafts(action: String, body: [String: Any]) {
+        let requestID = correlationID(body["request_id"]) ?? ""
+        guard pageReady, secureSessionStore.load() != nil,
+              let identity = navigationInbox.confirmedIdentity else {
+            dispatchEvent(name: "maisonpilote:secure-drafts-error", detail: [
+                "request_id": requestID, "action": action, "success": false,
+                "key": body["key"] as? String ?? "", "message": "Reconnectez-vous avant de conserver ce brouillon.",
+            ])
+            return
+        }
+        do {
+            let drafts: [String: String]
+            if action == "secureDrafts.refresh" {
+                drafts = try secureDraftStore.read(identity: identity)
+            } else {
+                guard let key = body["key"] as? String else {
+                    throw SecureDraftStore.StorageError.invalid
+                }
+                let value: String?
+                if action == "secureDrafts.remove" {
+                    value = nil
+                } else {
+                    guard let text = body["value"] as? String else {
+                        throw SecureDraftStore.StorageError.invalid
+                    }
+                    value = text
+                }
+                drafts = try secureDraftStore.write(identity: identity, key: key, value: value)
             }
-            self.deliverPendingDeepLinks()
+            dispatchEvent(name: "maisonpilote:secure-drafts", detail: [
+                "identity": identity, "drafts": drafts, "request_id": requestID,
+                "action": action, "key": body["key"] as? String ?? "", "success": true,
+            ])
+        } catch {
+            let failure = error as? SecureDraftStore.StorageError ?? .unavailable
+            dispatchEvent(name: "maisonpilote:secure-drafts-error", detail: [
+                "identity": identity, "key": body["key"] as? String ?? "",
+                "message": failure.message, "request_id": requestID, "action": action, "success": false,
+            ])
+        }
+    }
+
+    private func deliverPendingNavigation() {
+        guard pageReady, secureSessionStore.load() != nil else { return }
+        // The runtime serializes these events. An unacknowledged/revoked first
+        // destination must not prevent a later, valid opening from reaching it.
+        while let pending = navigationInbox.next(excluding: deliveredNavigationIDs) {
+            deliveredNavigationIDs.insert(pending.id)
+            var detail: [String: Any] = pending.detail
+            detail["request_id"] = pending.id.uuidString.lowercased()
+            detail["opened_by_user"] = pending.openedByUser
+            if let deepLink = pending.detail["deep_link"] { detail["url"] = deepLink }
+            dispatchEvent(name: pending.eventName, detail: detail) { [weak self] delivered in
+                guard !delivered else { return }
+                // Only navigation.ack removes the persistent item. Transport
+                // failure makes this UUID eligible for the next explicit retry.
+                self?.deliveredNavigationIDs.remove(pending.id)
+            }
         }
     }
 
@@ -410,6 +601,11 @@ final class WebViewStore: NSObject, ObservableObject {
         detail: Any,
         completion: ((Bool) -> Void)? = nil
     ) {
+        let publicEvents = ["maisonpilote:native-open-result", "maisonpilote:outgoing-document-result", "maisonpilote:outgoing-document-presentation"]
+        guard webView.url.map(AppEnvironment.isShellURL) == true || publicEvents.contains(name) else {
+            completion?(false)
+            return
+        }
         guard JSONSerialization.isValidJSONObject(detail),
               let detailData = try? JSONSerialization.data(withJSONObject: detail),
               let detailJSON = String(data: detailData, encoding: .utf8),
@@ -425,12 +621,21 @@ final class WebViewStore: NSObject, ObservableObject {
     }
 
     private func refreshSecureSessionInjection(_ session: SecureWebSession?) {
+        replaceDocumentScripts(session)
+        webView.evaluateJavaScript(NativeBridgeScript.secureSessionAssignment(session))
+        applyHomeTextScale()
+        applyContentVisibility()
+    }
+
+    private func replaceDocumentScripts(_ session: SecureWebSession?) {
         let contentController = webView.configuration.userContentController
         contentController.removeAllUserScripts()
         contentController.addUserScript(WKUserScript(
             source: NativeBridgeScript.documentStart(
                 secureSession: session,
-                pendingSharedFiles: !shareInbox.publicBatches().isEmpty
+                pendingSharedFiles: !shareInbox.publicBatches().isEmpty,
+                homeTextScale: Self.homeTextScale,
+                contentVisible: effectiveContentVisible
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -440,7 +645,16 @@ final class WebViewStore: NSObject, ObservableObject {
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         ))
-        webView.evaluateJavaScript(NativeBridgeScript.secureSessionAssignment(session))
+    }
+
+    private func applyContentVisibility() {
+        guard webView.url.map(AppEnvironment.isTrusted) == true else { return }
+        webView.evaluateJavaScript(NativeBridgeScript.contentVisibilityAssignment(effectiveContentVisible))
+    }
+
+    private func applyHomeTextScale() {
+        guard webView.url.map(AppEnvironment.isTrusted) == true else { return }
+        webView.evaluateJavaScript(NativeBridgeScript.homeTextScaleAssignment(Self.homeTextScale))
     }
 
     private func dispatchBiometricResult(success: Bool, errorCode: String?) {
@@ -463,7 +677,13 @@ final class WebViewStore: NSObject, ObservableObject {
         }
         if AppEnvironment.isTrusted(url) {
             if AppEnvironment.isSignatureURL(url) {
+                if navigationAction.targetFrame?.isMainFrame == true {
+                    webView.allowsBackForwardNavigationGestures = true
+                }
                 return .allow
+            }
+            if navigationAction.targetFrame?.isMainFrame == true, AppEnvironment.isShellURL(url) {
+                webView.allowsBackForwardNavigationGestures = false
             }
             if navigationAction.targetFrame?.isMainFrame == true,
                !AppEnvironment.isShellURL(url) {
@@ -489,6 +709,7 @@ extension WebViewStore: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        speechBridge.cancel(notify: true)
         isLoading = true
         pageReady = false
     }
@@ -496,6 +717,8 @@ extension WebViewStore: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoading = false
         errorMessage = nil
+        applyContentVisibility()
+        applyHomeTextScale()
         // Premier essai après le document, puis nouvel envoi au signal
         // runtime-ready afin d'éviter une course avec les listeners JavaScript.
         deliverApnsToken()
@@ -540,7 +763,9 @@ extension WebViewStore: WKUIDelegate {
     ) -> WKWebView? {
         guard navigationAction.targetFrame == nil,
               let url = navigationAction.request.url else { return nil }
-        if AppEnvironment.isShellURL(url) {
+        if AppEnvironment.isPublicInformationURL(url) {
+            UIApplication.shared.open(url)
+        } else if AppEnvironment.isShellURL(url) {
             webView.load(navigationAction.request)
         } else if AppEnvironment.isSignatureURL(url) {
             let request = AppEnvironment.signatureExperienceURL(url).map { URLRequest(url: $0) }
@@ -562,7 +787,7 @@ extension WebViewStore: WKUIDelegate {
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
         let trusted = origin.protocol.lowercased() == "https"
-            && origin.host.lowercased() == AppEnvironment.trustedHost
+            && AppEnvironment.trustedHosts.contains(origin.host.lowercased())
             && (origin.port == 0 || origin.port == 443)
         guard trusted, frame.isMainFrame else {
             decisionHandler(.deny)
@@ -581,7 +806,7 @@ extension WebViewStore: SpeechRecognitionBridgeDelegate {
     ) {
         dispatchEvent(
             name: "maisonpilote:speech-result",
-            detail: ["transcript": transcript]
+            detail: ["transcript": transcript, "request_id": bridge.requestID]
         )
     }
 
@@ -592,7 +817,7 @@ extension WebViewStore: SpeechRecognitionBridgeDelegate {
     ) {
         dispatchEvent(
             name: "maisonpilote:speech-error",
-            detail: ["code": code, "message": message]
+            detail: ["code": code, "message": message, "request_id": bridge.requestID]
         )
     }
 }
@@ -608,6 +833,17 @@ extension WebViewStore: BiometricAuthenticationBridgeDelegate {
 }
 
 extension WebViewStore: OutgoingDocumentBridgeDelegate {
+    func outgoingDocumentBridge(
+        _ bridge: OutgoingDocumentBridge,
+        presentationVisibilityChanged visible: Bool
+    ) {
+        guard nativePresentationVisible != visible else { return }
+        nativePresentationVisible = visible
+        pushCoordinator.contentVisible = effectiveContentVisible
+        replaceDocumentScripts(secureSessionStore.load())
+        applyContentVisibility()
+    }
+
     func outgoingDocumentBridge(
         _ bridge: OutgoingDocumentBridge,
         emit eventName: String,

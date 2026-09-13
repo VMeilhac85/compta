@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Speech
+import UIKit
 
 @MainActor
 protocol SpeechRecognitionBridgeDelegate: AnyObject {
@@ -17,16 +18,36 @@ final class SpeechRecognitionBridge: NSObject {
     private var recognitionTask: SFSpeechRecognitionTask?
     private var recognizer: SFSpeechRecognizer?
     private var tapInstalled = false
-    private var cancelledByUser = false
+    private var cancelledByUser = true
+    private var generation = UUID()
+    private var observers: [NSObjectProtocol] = []
+    private var recognitionDeadline: DispatchWorkItem?
+    private(set) var requestID = ""
 
-    func start(language: String) {
+    override init() {
+        super.init()
+        for name in [UIApplication.didEnterBackgroundNotification, AVAudioSession.interruptionNotification] {
+            observers.append(NotificationCenter.default.addObserver(
+                forName: name, object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.cancel(notify: true) }
+            })
+        }
+    }
+
+    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+
+    func start(language: String, requestID: String = "") {
         cancel(notify: false)
         cancelledByUser = false
+        self.requestID = requestID
+        let invocation = generation
         let safeLanguage = Self.normalizedLanguage(language)
 
-        requestPermissions { [weak self] allowed, code, message in
-            guard let self else { return }
+        requestPermissions(generation: invocation) { [weak self] allowed, code, message in
+            guard let self, self.generation == invocation, !self.cancelledByUser else { return }
             guard allowed else {
+                self.cancel(notify: false)
                 self.delegate?.speechRecognitionBridge(
                     self,
                     didFail: code ?? "permission-denied",
@@ -34,18 +55,22 @@ final class SpeechRecognitionBridge: NSObject {
                 )
                 return
             }
-            self.beginRecognition(language: safeLanguage)
+            self.beginRecognition(language: safeLanguage, generation: invocation)
         }
     }
 
     func cancel(notify: Bool = false) {
+        let wasActive = !cancelledByUser
+        generation = UUID()
         cancelledByUser = true
+        recognitionDeadline?.cancel()
+        recognitionDeadline = nil
         recognitionTask?.cancel()
         recognitionTask = nil
         recognitionRequest?.endAudio()
         recognitionRequest = nil
         stopAudioSession()
-        if notify {
+        if notify && wasActive {
             delegate?.speechRecognitionBridge(
                 self,
                 didFail: "cancelled",
@@ -55,10 +80,12 @@ final class SpeechRecognitionBridge: NSObject {
     }
 
     private func requestPermissions(
+        generation invocation: UUID,
         completion: @escaping (Bool, String?, String?) -> Void
     ) {
-        SFSpeechRecognizer.requestAuthorization { speechStatus in
+        SFSpeechRecognizer.requestAuthorization { [weak self] speechStatus in
             DispatchQueue.main.async {
+                guard let self, self.generation == invocation, !self.cancelledByUser else { return }
                 guard speechStatus == .authorized else {
                     completion(
                         false,
@@ -78,7 +105,8 @@ final class SpeechRecognitionBridge: NSObject {
         }
     }
 
-    private func beginRecognition(language: String) {
+    private func beginRecognition(language: String, generation invocation: UUID) {
+        guard generation == invocation, !cancelledByUser else { return }
         let recognizer = SFSpeechRecognizer(locale: Locale(identifier: language))
         guard let recognizer, recognizer.isAvailable else {
             delegate?.speechRecognitionBridge(
@@ -112,7 +140,7 @@ final class SpeechRecognitionBridge: NSObject {
 
             recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 DispatchQueue.main.async {
-                    guard let self else { return }
+                    guard let self, self.generation == invocation, !self.cancelledByUser else { return }
                     if let result, result.isFinal {
                         let transcript = result.bestTranscription.formattedString
                             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -140,6 +168,16 @@ final class SpeechRecognitionBridge: NSObject {
             }
             audioEngine.prepare()
             try audioEngine.start()
+            let deadline = DispatchWorkItem { [weak self] in
+                guard let self, self.generation == invocation, !self.cancelledByUser else { return }
+                self.cancel(notify: false)
+                self.delegate?.speechRecognitionBridge(
+                    self, didFail: "recognition-timeout",
+                    message: "La dictée a atteint sa durée maximale. Vous pouvez recommencer."
+                )
+            }
+            recognitionDeadline = deadline
+            DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: deadline)
         } catch {
             finishRecognition()
             delegate?.speechRecognitionBridge(
@@ -151,6 +189,10 @@ final class SpeechRecognitionBridge: NSObject {
     }
 
     private func finishRecognition() {
+        generation = UUID()
+        cancelledByUser = true
+        recognitionDeadline?.cancel()
+        recognitionDeadline = nil
         recognitionRequest?.endAudio()
         recognitionTask?.finish()
         recognitionTask = nil

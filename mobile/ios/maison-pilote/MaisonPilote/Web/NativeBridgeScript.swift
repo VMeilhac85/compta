@@ -3,12 +3,46 @@ import Foundation
 enum NativeBridgeScript {
     static func documentStart(
         secureSession: SecureWebSession?,
-        pendingSharedFiles: Bool
+        pendingSharedFiles: Bool,
+        homeTextScale: Double = 1,
+        contentVisible: Bool = false
     ) -> String {
         appVersionAssignment()
+            + "\n" + contentVisibilityAssignment(contentVisible)
             + "\n" + secureSessionAssignment(secureSession)
             + "\n" + pendingSharedFilesAssignment(pendingSharedFiles)
+            + "\n" + homeTextScaleAssignment(homeTextScale)
             + "\n" + bridgeSource
+    }
+
+    static func contentVisibilityAssignment(_ visible: Bool) -> String {
+        """
+        (() => {
+            const visible = \(visible ? "true" : "false");
+            window.__MAISON_PILOTE_IOS_CONTENT_VISIBLE__ = visible;
+            window.dispatchEvent(new CustomEvent('maisonpilote:native-content-visibility', {
+                detail: { visible }
+            }));
+        })();
+        """
+    }
+
+    static func homeTextScaleAssignment(_ factor: Double) -> String {
+        let scale = factor.isFinite && factor > 0 ? factor : 1
+        return """
+        (() => {
+            const apply = () => {
+                const root = document.documentElement;
+                if (!root) return;
+                root.style.setProperty('--mobile-home-font-scale', String(\(scale)));
+                root.dataset.mobileHomeLargeText = \(scale) >= 1.3 ? 'true' : 'false';
+                // Recompute runtime text fitting and open-menu bounds as well.
+                window.dispatchEvent(new Event('resize'));
+            };
+            if (document.documentElement) apply();
+            else document.addEventListener('DOMContentLoaded', apply, { once: true });
+        })();
+        """
     }
 
     private static func appVersionAssignment() -> String {
@@ -18,13 +52,19 @@ enum NativeBridgeScript {
         let versionCode = Int(
             Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
         ) ?? 0
+        let configuredChannel = Bundle.main.object(
+            forInfoDictionaryKey: "MaisonPiloteReleaseChannel"
+        ) as? String
+        let channel = configuredChannel == "production" ? "production" : "beta"
         let payload: [String: Any] = [
             "versionCode": versionCode,
             "versionName": versionName,
+            "platform": "ios",
+            "channel": channel,
         ]
         guard let data = try? JSONSerialization.data(withJSONObject: payload),
               let json = String(data: data, encoding: .utf8) else {
-            return "window.__MAISON_PILOTE_IOS_APP__ = {versionCode: 0, versionName: '0'};"
+            return "window.__MAISON_PILOTE_IOS_APP__ = {versionCode: 0, versionName: '0', platform: 'ios', channel: 'beta'};"
         }
         return "window.__MAISON_PILOTE_IOS_APP__ = \(json);"
     }
@@ -43,7 +83,24 @@ enum NativeBridgeScript {
               let json = String(data: payload, encoding: .utf8) else {
             return "delete window.__MAISON_PILOTE_IOS_SESSION__;"
         }
-        return "window.__MAISON_PILOTE_IOS_SESSION__ = \(json);"
+        let shell = AppEnvironment.initialURL
+        let scope: [String: Any] = [
+            "hosts": Array(AppEnvironment.trustedHosts), "path": shell.path,
+            "query": shell.query.map { "?" + $0 } ?? "",
+        ]
+        guard let scopeData = try? JSONSerialization.data(withJSONObject: scope),
+              let scopeJSON = String(data: scopeData, encoding: .utf8) else {
+            return "delete window.__MAISON_PILOTE_IOS_SESSION__;"
+        }
+        return """
+        (() => {
+            const scope = \(scopeJSON), url = new URL(window.location.href);
+            if (url.protocol === 'https:' && (!url.port || url.port === '443')
+                && scope.hosts.includes(url.hostname) && url.pathname === scope.path
+                && url.search === scope.query) window.__MAISON_PILOTE_IOS_SESSION__ = \(json);
+            else delete window.__MAISON_PILOTE_IOS_SESSION__;
+        })();
+        """
     }
 
     private static func pendingSharedFilesAssignment(_ pending: Bool) -> String {
@@ -69,9 +126,13 @@ enum NativeBridgeScript {
 
         window.MaisonPiloteNative = Object.assign({}, window.MaisonPiloteNative || {}, {
             platform: 'ios',
-            bridgeVersion: 5,
+            bridgeVersion: 7,
+            capabilities: { pushState: true, settings: true, externalOpenResult: true,
+                secureDraftAcknowledgements: true, speechRequestIds: true,
+                shareContextBinding: true, persistentCapture: true, imageConversion: true },
+            supportsAuthenticatorLinks: true,
             speechRecognition: {
-                start: (language = 'fr-FR') => post(speech, { action: 'start', language }),
+                start: (language = 'fr-FR', requestId = '') => post(speech, { action: 'start', language, request_id: String(requestId) }),
                 cancel: () => post(speech, { action: 'cancel', language: 'fr-FR' })
             },
             secureSession: {
@@ -85,7 +146,9 @@ enum NativeBridgeScript {
                     action: 'bindDevice',
                     deviceId: String(deviceId || '')
                 }),
-                clear: () => post(secureSession, { action: 'clear' })
+                clear: ({ preserveNavigation = false } = {}) => post(secureSession, {
+                    action: 'clear', preserve_navigation: Boolean(preserveNavigation)
+                })
             },
             biometricAuthentication: {
                 authenticate: () => post(biometric, { action: 'authenticate' })
@@ -98,6 +161,15 @@ enum NativeBridgeScript {
             },
             shareInbox: {
                 refresh: () => post(native, { action: 'shareInbox.refresh' }),
+                bindContext: (batchId, identityScope, dossierId, requestId = '', contextType = 'shared_file', folderId = 0) => post(native, {
+                    action: 'shareInbox.bindContext', batch_id: String(batchId),
+                    identity_scope: String(identityScope), dossier_id: Number(dossierId), request_id: String(requestId),
+                    context_type: String(contextType), folder_id: Number(folderId)
+                }),
+                beginCapture: (options) => post(native, { ...options, action: 'capture.begin' }),
+                appendCapture: (options) => post(native, { ...options, action: 'capture.append' }),
+                finishCapture: (options) => post(native, { ...options, action: 'capture.finish' }),
+                cancelCapture: (options) => post(native, { ...options, action: 'capture.cancel' }),
                 discard: (id, requestId = '') => post(native, {
                     action: 'shareInbox.discard',
                     id: String(id || ''),
@@ -154,13 +226,35 @@ enum NativeBridgeScript {
                     transfer_id: String(transferId || '')
                 })
             },
+            secureDrafts: {
+                refresh: (requestId = '') => post(native, { action: 'secureDrafts.refresh', request_id: String(requestId) }),
+                write: (key, value, requestId = '') => post(native, {
+                    action: 'secureDrafts.write', key: String(key || ''), value: String(value ?? ''), request_id: String(requestId)
+                }),
+                remove: (key, requestId = '') => post(native, {
+                    action: 'secureDrafts.remove', key: String(key || ''), request_id: String(requestId)
+                })
+            },
+            navigation: {
+                bindIdentity: (userId) => post(native, {
+                    action: 'navigation.bindIdentity', user_id: String(userId || '')
+                }),
+                acknowledge: (requestId, outcome = 'completed') => post(native, {
+                    action: 'navigation.ack', request_id: String(requestId || ''),
+                    outcome: String(outcome || '')
+                }),
+                retry: () => post(native, { action: 'navigation.retry' })
+            },
             assistantRequest: {
                 acknowledge: (id) => post(native, {
                     action: 'assistantRequest.ack',
                     id: String(id || '')
                 })
             },
-            openExternal: (url) => post(native, { action: 'openExternal', url: String(url || '') }),
+            settings: { open: (kind = 'application', requestId = '') => post(native, {
+                action: 'openSettings', kind: String(kind), request_id: String(requestId)
+            }) },
+            openExternal: (url, requestId = '') => post(native, { action: 'openExternal', url: String(url || ''), request_id: String(requestId) }),
             ready: () => post(native, { action: 'ready' })
         });
     })();
@@ -168,7 +262,7 @@ enum NativeBridgeScript {
 
     static let documentEnd = #"""
     window.dispatchEvent(new CustomEvent('maisonpilote:native-bridge-ready', {
-        detail: { platform: 'ios', bridgeVersion: 5 }
+        detail: { platform: 'ios', bridgeVersion: 7 }
     }));
     """#
 }
