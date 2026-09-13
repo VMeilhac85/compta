@@ -20,7 +20,14 @@ final class WebViewStore: NSObject, ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var started = false
     private var pageReady = false
-    private var pendingDeepLinks: [URL] = []
+    private var contentVisible = false
+    private let navigationInbox = NativeNavigationInbox.shared
+    private let secureDraftStore = SecureDraftStore()
+    private var deliveredNavigationIDs = Set<UUID>()
+
+    private static var homeTextScale: Double {
+        Double(UIFont.preferredFont(forTextStyle: .body).pointSize / 17)
+    }
 
     override init() {
         let contentController = WKUserContentController()
@@ -33,7 +40,8 @@ final class WebViewStore: NSObject, ObservableObject {
         contentController.addUserScript(WKUserScript(
             source: NativeBridgeScript.documentStart(
                 secureSession: SecureSessionStore.shared.load(),
-                pendingSharedFiles: !ShareInbox().publicBatches().isEmpty
+                pendingSharedFiles: !ShareInbox().publicBatches().isEmpty,
+                homeTextScale: Self.homeTextScale
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -64,14 +72,25 @@ final class WebViewStore: NSObject, ObservableObject {
         outgoingDocumentBridge.delegate = self
         webView.navigationDelegate = self
         webView.uiDelegate = self
-        webView.allowsBackForwardNavigationGestures = true
+        // The shared runtime owns the route stack and its visible Back control.
+        webView.allowsBackForwardNavigationGestures = false
         webView.scrollView.keyboardDismissMode = .interactive
-        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        // SwiftUI already constrains the web view to the usable safe area.
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
         NotificationCenter.default.publisher(for: .maisonPilotePushStateChanged)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
                     guard self?.pageReady == true else { return }
                     self?.deliverPendingNativePayloads()
+                }
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.publisher(for: UIContentSizeCategory.didChangeNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    // Actualise aussi les scripts réinjectés après un rechargement.
+                    self.refreshSecureSessionInjection(self.secureSessionStore.load())
                 }
             }
             .store(in: &cancellables)
@@ -105,30 +124,37 @@ final class WebViewStore: NSObject, ObservableObject {
     func openDeepLink(_ candidate: URL) {
         guard let url = AppEnvironment.normalizedDeepLink(candidate) else { return }
         if let signatureURL = AppEnvironment.signatureExperienceURL(url) {
-            pendingDeepLinks.removeAll(where: AppEnvironment.isSignatureURL)
             errorMessage = nil
             pageReady = false
             started = true
             load(signatureURL)
             return
         }
-        if !AppEnvironment.isShellURL(url), !pendingDeepLinks.contains(url) {
-            pendingDeepLinks.append(url)
-            if pendingDeepLinks.count > 20 {
-                pendingDeepLinks.removeFirst(pendingDeepLinks.count - 20)
-            }
+        if !AppEnvironment.isShellURL(url) {
+            navigationInbox.enqueue(url: url)
         }
         errorMessage = nil
         if !started {
             started = true
             load(AppEnvironment.initialURL)
         } else if pageReady {
-            deliverPendingDeepLinks()
+            deliverPendingNavigation()
         }
     }
 
+    func updateContentVisibility(_ visible: Bool) {
+        guard contentVisible != visible else { return }
+        contentVisible = visible
+        // Keep future documents consistent with the current native privacy shield.
+        replaceDocumentScripts(secureSessionStore.load())
+        applyContentVisibility()
+    }
+
     func applicationDidBecomeActive() {
+        applyContentVisibility()
+        applyHomeTextScale()
         pushCoordinator.registerIfAuthorized()
+        deliveredNavigationIDs.removeAll()
         guard pageReady else { return }
         deliverPendingNativePayloads()
     }
@@ -163,6 +189,8 @@ final class WebViewStore: NSObject, ObservableObject {
                         expiresAt: body["expiresAt"] as? String,
                         deviceID: body["deviceId"] as? String
                       ) else { return }
+                navigationInbox.suspendIdentity()
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(secureSessionStore.load())
                 if pageReady { deliverShareInbox() }
             case "bindDevice":
@@ -170,6 +198,12 @@ final class WebViewStore: NSObject, ObservableObject {
                       secureSessionStore.bindDeviceID(deviceID) else { return }
             case "clear":
                 secureSessionStore.clear()
+                if body["preserve_navigation"] as? Bool == true {
+                    navigationInbox.suspendIdentity()
+                } else {
+                    navigationInbox.clear()
+                }
+                deliveredNavigationIDs.removeAll()
                 refreshSecureSessionInjection(nil)
                 if pageReady { deliverShareInbox() }
             default:
@@ -197,8 +231,36 @@ final class WebViewStore: NSObject, ObservableObject {
         }
 
         switch action {
+        case "secureDrafts.refresh", "secureDrafts.write", "secureDrafts.remove":
+            handleSecureDrafts(action: action, body: body)
+        case "navigation.bindIdentity":
+            let previousIdentity = navigationInbox.confirmedIdentity
+            guard secureSessionStore.load() != nil,
+                  let userID = body["user_id"] as? String,
+                  navigationInbox.bindIdentity(userID) else { return }
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
+            if previousIdentity != navigationInbox.confirmedIdentity {
+                deliveredNavigationIDs.removeAll()
+            }
+            deliverPendingNavigation()
+        case "navigation.ack":
+            guard secureSessionStore.load() != nil,
+                  body["outcome"] as? String == "completed",
+                  let rawID = correlationID(body["request_id"]),
+                  let id = UUID(uuidString: rawID),
+                  deliveredNavigationIDs.contains(id),
+                  navigationInbox.acknowledge(id: id) else { return }
+            deliveredNavigationIDs.remove(id)
+            deliverPendingNavigation()
+        case "navigation.retry":
+            deliveredNavigationIDs.removeAll()
+            deliverPendingNavigation()
         case "ready":
+            deliveredNavigationIDs.removeAll()
             pageReady = true
+            applyContentVisibility()
+            applyHomeTextScale()
+            handleSecureDrafts(action: "secureDrafts.refresh", body: [:])
             deliverPendingNativePayloads()
         case "pushNotifications.requestAuthorization":
             pushCoordinator.requestAuthorization()
@@ -239,7 +301,7 @@ final class WebViewStore: NSObject, ObservableObject {
             guard let rawURL = body["url"] as? String,
                   let url = URL(string: rawURL),
                   AppEnvironment.canOpenExternally(url),
-                  !AppEnvironment.isTrusted(url) else { return }
+                  (!AppEnvironment.isTrusted(url) || AppEnvironment.isPublicInformationURL(url)) else { return }
             UIApplication.shared.open(url)
         default:
             break
@@ -248,6 +310,8 @@ final class WebViewStore: NSObject, ObservableObject {
 
     private func load(_ url: URL) {
         guard AppEnvironment.isTrusted(url) else { return }
+        // Signature documents are real web pages outside the runtime route stack.
+        webView.allowsBackForwardNavigationGestures = AppEnvironment.isSignatureURL(url)
         var request = URLRequest(url: url)
         request.cachePolicy = .useProtocolCachePolicy
         request.timeoutInterval = 60
@@ -256,10 +320,9 @@ final class WebViewStore: NSObject, ObservableObject {
 
     private func deliverPendingNativePayloads() {
         deliverApnsToken()
-        deliverPendingPush()
         deliverPendingAssistantRequest()
         deliverShareInbox()
-        deliverPendingDeepLinks()
+        deliverPendingNavigation()
     }
 
     private func deliverApnsToken() {
@@ -272,24 +335,6 @@ final class WebViewStore: NSObject, ObservableObject {
                 "environment": pushCoordinator.environment,
             ]
         )
-    }
-
-    private func deliverPendingPush() {
-        guard let push = pushCoordinator.pendingPush else { return }
-        var detail: [String: Any] = push.detail
-        detail["opened_by_user"] = push.openedByUser
-        let eventName = push.openedByUser && push.detail["deep_link"] != nil
-            ? "maisonpilote:deep-link"
-            : "maisonpilote:push-notification"
-        if let deepLink = push.detail["deep_link"] {
-            detail["url"] = deepLink
-        }
-        dispatchEvent(name: eventName, detail: detail) { [weak self] delivered in
-            guard delivered else { return }
-            Task { @MainActor [weak self] in
-                self?.pushCoordinator.acknowledge(pushID: push.id)
-            }
-        }
     }
 
     private func deliverPendingAssistantRequest() {
@@ -391,17 +436,56 @@ final class WebViewStore: NSObject, ObservableObject {
         return number.int64Value
     }
 
-    private func deliverPendingDeepLinks() {
-        guard pageReady, let url = pendingDeepLinks.first else { return }
-        dispatchEvent(
-            name: "maisonpilote:deep-link",
-            detail: ["url": url.absoluteString]
-        ) { [weak self] success in
-            guard success, let self else { return }
-            if self.pendingDeepLinks.first == url {
-                self.pendingDeepLinks.removeFirst()
+    private func handleSecureDrafts(action: String, body: [String: Any]) {
+        guard pageReady, secureSessionStore.load() != nil,
+              let identity = navigationInbox.confirmedIdentity else { return }
+        do {
+            let drafts: [String: String]
+            if action == "secureDrafts.refresh" {
+                drafts = try secureDraftStore.read(identity: identity)
+            } else {
+                guard let key = body["key"] as? String else {
+                    throw SecureDraftStore.StorageError.invalid
+                }
+                let value: String?
+                if action == "secureDrafts.remove" {
+                    value = nil
+                } else {
+                    guard let text = body["value"] as? String else {
+                        throw SecureDraftStore.StorageError.invalid
+                    }
+                    value = text
+                }
+                drafts = try secureDraftStore.write(identity: identity, key: key, value: value)
             }
-            self.deliverPendingDeepLinks()
+            dispatchEvent(name: "maisonpilote:secure-drafts", detail: [
+                "identity": identity, "drafts": drafts,
+            ])
+        } catch {
+            let failure = error as? SecureDraftStore.StorageError ?? .unavailable
+            dispatchEvent(name: "maisonpilote:secure-drafts-error", detail: [
+                "identity": identity, "key": body["key"] as? String ?? "",
+                "message": failure.message,
+            ])
+        }
+    }
+
+    private func deliverPendingNavigation() {
+        guard pageReady, secureSessionStore.load() != nil else { return }
+        // The runtime serializes these events. An unacknowledged/revoked first
+        // destination must not prevent a later, valid opening from reaching it.
+        while let pending = navigationInbox.next(excluding: deliveredNavigationIDs) {
+            deliveredNavigationIDs.insert(pending.id)
+            var detail: [String: Any] = pending.detail
+            detail["request_id"] = pending.id.uuidString.lowercased()
+            detail["opened_by_user"] = pending.openedByUser
+            if let deepLink = pending.detail["deep_link"] { detail["url"] = deepLink }
+            dispatchEvent(name: pending.eventName, detail: detail) { [weak self] delivered in
+                guard !delivered else { return }
+                // Only navigation.ack removes the persistent item. Transport
+                // failure makes this UUID eligible for the next explicit retry.
+                self?.deliveredNavigationIDs.remove(pending.id)
+            }
         }
     }
 
@@ -425,12 +509,21 @@ final class WebViewStore: NSObject, ObservableObject {
     }
 
     private func refreshSecureSessionInjection(_ session: SecureWebSession?) {
+        replaceDocumentScripts(session)
+        webView.evaluateJavaScript(NativeBridgeScript.secureSessionAssignment(session))
+        applyHomeTextScale()
+        applyContentVisibility()
+    }
+
+    private func replaceDocumentScripts(_ session: SecureWebSession?) {
         let contentController = webView.configuration.userContentController
         contentController.removeAllUserScripts()
         contentController.addUserScript(WKUserScript(
             source: NativeBridgeScript.documentStart(
                 secureSession: session,
-                pendingSharedFiles: !shareInbox.publicBatches().isEmpty
+                pendingSharedFiles: !shareInbox.publicBatches().isEmpty,
+                homeTextScale: Self.homeTextScale,
+                contentVisible: contentVisible
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -440,7 +533,16 @@ final class WebViewStore: NSObject, ObservableObject {
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         ))
-        webView.evaluateJavaScript(NativeBridgeScript.secureSessionAssignment(session))
+    }
+
+    private func applyContentVisibility() {
+        guard webView.url.map(AppEnvironment.isTrusted) == true else { return }
+        webView.evaluateJavaScript(NativeBridgeScript.contentVisibilityAssignment(contentVisible))
+    }
+
+    private func applyHomeTextScale() {
+        guard webView.url.map(AppEnvironment.isTrusted) == true else { return }
+        webView.evaluateJavaScript(NativeBridgeScript.homeTextScaleAssignment(Self.homeTextScale))
     }
 
     private func dispatchBiometricResult(success: Bool, errorCode: String?) {
@@ -463,7 +565,13 @@ final class WebViewStore: NSObject, ObservableObject {
         }
         if AppEnvironment.isTrusted(url) {
             if AppEnvironment.isSignatureURL(url) {
+                if navigationAction.targetFrame?.isMainFrame == true {
+                    webView.allowsBackForwardNavigationGestures = true
+                }
                 return .allow
+            }
+            if navigationAction.targetFrame?.isMainFrame == true, AppEnvironment.isShellURL(url) {
+                webView.allowsBackForwardNavigationGestures = false
             }
             if navigationAction.targetFrame?.isMainFrame == true,
                !AppEnvironment.isShellURL(url) {
@@ -496,6 +604,8 @@ extension WebViewStore: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         isLoading = false
         errorMessage = nil
+        applyContentVisibility()
+        applyHomeTextScale()
         // Premier essai après le document, puis nouvel envoi au signal
         // runtime-ready afin d'éviter une course avec les listeners JavaScript.
         deliverApnsToken()
@@ -540,7 +650,9 @@ extension WebViewStore: WKUIDelegate {
     ) -> WKWebView? {
         guard navigationAction.targetFrame == nil,
               let url = navigationAction.request.url else { return nil }
-        if AppEnvironment.isShellURL(url) {
+        if AppEnvironment.isPublicInformationURL(url) {
+            UIApplication.shared.open(url)
+        } else if AppEnvironment.isShellURL(url) {
             webView.load(navigationAction.request)
         } else if AppEnvironment.isSignatureURL(url) {
             let request = AppEnvironment.signatureExperienceURL(url).map { URLRequest(url: $0) }
@@ -562,7 +674,7 @@ extension WebViewStore: WKUIDelegate {
         decisionHandler: @escaping (WKPermissionDecision) -> Void
     ) {
         let trusted = origin.protocol.lowercased() == "https"
-            && origin.host.lowercased() == AppEnvironment.trustedHost
+            && AppEnvironment.trustedHosts.contains(origin.host.lowercased())
             && (origin.port == 0 || origin.port == 443)
         guard trusted, frame.isMainFrame else {
             decisionHandler(.deny)

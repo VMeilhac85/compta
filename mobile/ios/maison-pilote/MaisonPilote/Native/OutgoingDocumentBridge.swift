@@ -486,6 +486,7 @@ final class OutgoingDocumentBridge: NSObject {
             "transfer_id": presentation.transferID,
             "mode": presentation.mode,
             "outcome": outcome,
+            "completed": outcome == "completed",
             "cleaned": cleaned,
         ]
         if failed {
@@ -892,13 +893,17 @@ extension OutgoingDocumentBridge: @preconcurrency QLPreviewControllerDelegate {
 
 extension OutgoingDocumentBridge: UIAdaptivePresentationControllerDelegate {
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        // UIActivityViewController owns its terminal result. Its dismissal delegate
+        // may run before completionWithItemsHandler and must not convert a completed
+        // save into a cancellation. Quick Look only reports a preview dismissal.
         guard let presentation = activePresentation,
+              presentation.mode == "preview",
               presentation.controller === presentationController.presentedViewController else {
             return
         }
         completePresentation(
             transferID: presentation.transferID,
-            outcome: presentation.mode == "preview" ? "dismissed" : "cancelled",
+            outcome: "dismissed",
             failed: false
         )
     }
