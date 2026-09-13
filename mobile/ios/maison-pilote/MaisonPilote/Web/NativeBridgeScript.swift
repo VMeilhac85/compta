@@ -3,12 +3,30 @@ import Foundation
 enum NativeBridgeScript {
     static func documentStart(
         secureSession: SecureWebSession?,
-        pendingSharedFiles: Bool
+        pendingSharedFiles: Bool,
+        homeTextScale: Double = 1
     ) -> String {
         appVersionAssignment()
             + "\n" + secureSessionAssignment(secureSession)
             + "\n" + pendingSharedFilesAssignment(pendingSharedFiles)
+            + "\n" + homeTextScaleAssignment(homeTextScale)
             + "\n" + bridgeSource
+    }
+
+    static func homeTextScaleAssignment(_ factor: Double) -> String {
+        let scale = factor.isFinite && factor > 0 ? factor : 1
+        return """
+        (() => {
+            const apply = () => {
+                const root = document.documentElement;
+                if (!root) return;
+                root.style.setProperty('--mobile-home-font-scale', String(\(scale)));
+                root.dataset.mobileHomeLargeText = \(scale) >= 1.3 ? 'true' : 'false';
+            };
+            if (document.documentElement) apply();
+            else document.addEventListener('DOMContentLoaded', apply, { once: true });
+        })();
+        """
     }
 
     private static func appVersionAssignment() -> String {
@@ -69,7 +87,8 @@ enum NativeBridgeScript {
 
         window.MaisonPiloteNative = Object.assign({}, window.MaisonPiloteNative || {}, {
             platform: 'ios',
-            bridgeVersion: 5,
+            bridgeVersion: 6,
+            supportsAuthenticatorLinks: true,
             speechRecognition: {
                 start: (language = 'fr-FR') => post(speech, { action: 'start', language }),
                 cancel: () => post(speech, { action: 'cancel', language: 'fr-FR' })
@@ -85,7 +104,9 @@ enum NativeBridgeScript {
                     action: 'bindDevice',
                     deviceId: String(deviceId || '')
                 }),
-                clear: () => post(secureSession, { action: 'clear' })
+                clear: ({ preserveNavigation = false } = {}) => post(secureSession, {
+                    action: 'clear', preserve_navigation: Boolean(preserveNavigation)
+                })
             },
             biometricAuthentication: {
                 authenticate: () => post(biometric, { action: 'authenticate' })
@@ -154,6 +175,25 @@ enum NativeBridgeScript {
                     transfer_id: String(transferId || '')
                 })
             },
+            secureDrafts: {
+                refresh: () => post(native, { action: 'secureDrafts.refresh' }),
+                write: (key, value) => post(native, {
+                    action: 'secureDrafts.write', key: String(key || ''), value: String(value ?? '')
+                }),
+                remove: (key) => post(native, {
+                    action: 'secureDrafts.remove', key: String(key || '')
+                })
+            },
+            navigation: {
+                bindIdentity: (userId) => post(native, {
+                    action: 'navigation.bindIdentity', user_id: String(userId || '')
+                }),
+                acknowledge: (requestId, outcome = 'completed') => post(native, {
+                    action: 'navigation.ack', request_id: String(requestId || ''),
+                    outcome: String(outcome || '')
+                }),
+                retry: () => post(native, { action: 'navigation.retry' })
+            },
             assistantRequest: {
                 acknowledge: (id) => post(native, {
                     action: 'assistantRequest.ack',
@@ -168,7 +208,7 @@ enum NativeBridgeScript {
 
     static let documentEnd = #"""
     window.dispatchEvent(new CustomEvent('maisonpilote:native-bridge-ready', {
-        detail: { platform: 'ios', bridgeVersion: 5 }
+        detail: { platform: 'ios', bridgeVersion: 6 }
     }));
     """#
 }
