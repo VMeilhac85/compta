@@ -7,6 +7,11 @@ import WebKit
 protocol OutgoingDocumentBridgeDelegate: AnyObject {
     func outgoingDocumentBridge(
         _ bridge: OutgoingDocumentBridge,
+        presentationVisibilityChanged visible: Bool
+    )
+
+    func outgoingDocumentBridge(
+        _ bridge: OutgoingDocumentBridge,
         emit eventName: String,
         detail: [String: Any]
     )
@@ -26,7 +31,32 @@ final class OutgoingDocumentBridge: NSObject {
     private let manifestName = "transfer.json"
     private let maximumTransfers = 2
     private let maximumManifestLength = 4 * 1024
-    private var activePresentation: ActivePresentation?
+    private var activePresentation: ActivePresentation? {
+        didSet {
+            if activePresentation != nil {
+                delegate?.outgoingDocumentBridge(self, presentationVisibilityChanged: true)
+            } else if let controller = oldValue?.controller {
+                reportPresentationClosure(controller)
+            }
+        }
+    }
+
+    private func reportPresentationClosure(_ controller: UIViewController) {
+        // A share completion can precede the end of UIKit's dismissal animation.
+        // Keep web content masked until the presented view has actually left its window.
+        if controller.viewIfLoaded?.window != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self, weak controller] in
+                guard let self else { return }
+                if let controller {
+                    self.reportPresentationClosure(controller)
+                } else if self.activePresentation == nil {
+                    self.delegate?.outgoingDocumentBridge(self, presentationVisibilityChanged: false)
+                }
+            }
+        } else if activePresentation == nil {
+            delegate?.outgoingDocumentBridge(self, presentationVisibilityChanged: false)
+        }
+    }
 
     private struct TransferManifest: Codable, Equatable {
         let version: Int
@@ -486,6 +516,7 @@ final class OutgoingDocumentBridge: NSObject {
             "transfer_id": presentation.transferID,
             "mode": presentation.mode,
             "outcome": outcome,
+            "completed": outcome == "completed",
             "cleaned": cleaned,
         ]
         if failed {
@@ -892,13 +923,17 @@ extension OutgoingDocumentBridge: @preconcurrency QLPreviewControllerDelegate {
 
 extension OutgoingDocumentBridge: UIAdaptivePresentationControllerDelegate {
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        // UIActivityViewController owns its terminal result. Its dismissal delegate
+        // may run before completionWithItemsHandler and must not convert a completed
+        // save into a cancellation. Quick Look only reports a preview dismissal.
         guard let presentation = activePresentation,
+              presentation.mode == "preview",
               presentation.controller === presentationController.presentedViewController else {
             return
         }
         completePresentation(
             transferID: presentation.transferID,
-            outcome: presentation.mode == "preview" ? "dismissed" : "cancelled",
+            outcome: "dismissed",
             failed: false
         )
     }
