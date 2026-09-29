@@ -2,9 +2,18 @@ import Foundation
 
 enum AppEnvironment {
     static let defaultHost = "maisonpilote.meilhac.expert"
+    static let defaultCanonicalHost = "maisonpilote.fr"
 
     static var trustedHost: String {
         configuredValue("MaisonPiloteURLHost")?.lowercased() ?? defaultHost
+    }
+
+    static var canonicalHost: String {
+        configuredValue("MaisonPiloteCanonicalURLHost")?.lowercased() ?? defaultCanonicalHost
+    }
+
+    static var trustedHosts: Set<String> {
+        [trustedHost, canonicalHost, defaultHost]
     }
 
     static var initialURL: URL {
@@ -32,7 +41,7 @@ enum AppEnvironment {
 
     static func isTrusted(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "https",
-              url.host?.lowercased() == trustedHost,
+              url.host.map({ trustedHosts.contains($0.lowercased()) }) == true,
               url.user == nil,
               url.password == nil else { return false }
         return url.port == nil || url.port == 443
@@ -47,10 +56,13 @@ enum AppEnvironment {
         candidate.fragment = nil
         shell.fragment = nil
         return candidate.scheme?.lowercased() == shell.scheme?.lowercased()
-            && candidate.host?.lowercased() == shell.host?.lowercased()
             && (candidate.port ?? 443) == (shell.port ?? 443)
             && candidate.percentEncodedPath == shell.percentEncodedPath
             && candidate.percentEncodedQuery == shell.percentEncodedQuery
+    }
+
+    static func isPublicInformationURL(_ url: URL) -> Bool {
+        isTrusted(url) && url.path == "/confidentialite" && url.query == nil
     }
 
     static func isSignatureURL(_ url: URL) -> Bool {
@@ -105,7 +117,19 @@ enum AppEnvironment {
     }
 
     static func canOpenExternally(_ url: URL) -> Bool {
-        guard let scheme = url.scheme?.lowercased() else { return false }
+        guard let scheme = url.scheme?.lowercased(), url.absoluteString.utf8.count <= 8192,
+              url.user == nil, url.password == nil,
+              !url.absoluteString.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return false }
+        if scheme == "otpauth" {
+            guard url.host == "totp", url.user == nil, url.password == nil, url.port == nil,
+                  url.absoluteString.count <= 2048,
+                  let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
+                  items.filter({ $0.name == "secret" }).count == 1,
+                  let secret = items.first(where: { $0.name == "secret" })?.value else { return false }
+            return secret.range(of: "^[A-Z2-7]{32}$", options: .regularExpression) != nil
+                && items.first(where: { $0.name == "issuer" })?.value == "Maison Pilote"
+        }
+        if ["https", "http"].contains(scheme) { return url.host?.isEmpty == false }
         return [
             "https", "http", "mailto", "tel", "sms", "maps", "itms-beta", "itms-apps",
         ].contains(scheme)
