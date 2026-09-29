@@ -42,8 +42,8 @@ private struct MaisonPiloteRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // SwiftUI owns the container and keyboard safe areas once.
             MaisonPiloteWebView(store: store)
-                .ignoresSafeArea(.container, edges: .bottom)
 
             if store.isLoading {
                 ProgressView()
@@ -68,6 +68,15 @@ private struct MaisonPiloteRootView: View {
             }
         }
         .background(Color(uiColor: .systemBackground))
+        .onAppear {
+            store.updateContentVisibility(!privacyShieldVisible)
+        }
+        .onChange(of: privacyShieldVisible) { hidden in
+            store.updateContentVisibility(!hidden)
+        }
+        .onDisappear {
+            store.updateContentVisibility(false)
+        }
         .task {
             store.startIfNeeded()
         }
