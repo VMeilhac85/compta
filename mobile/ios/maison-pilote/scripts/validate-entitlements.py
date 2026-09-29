@@ -52,13 +52,17 @@ def signed_entitlements(data):
     raise ValueError('Les droits signés sont absents de l’exécutable.')
 
 
-def check_rights(rights, group, domains=None, source=False):
+def check_rights(rights, group, domains=None, source=False, provisioning=False):
     require(group in rights.get(GROUPS, []), 'Droit App Groups absent ou groupe incorrect : ' + group)
     if domains is not None:
         require(rights.get(SIRI) is True, 'Droit Siri absent.')
         require(rights.get('aps-environment') == ('$(MAISON_PILOTE_APNS_ENVIRONMENT)' if source else 'production'),
                 'Droit de notification APNs de production absent.')
-        require(set(domains) <= set(rights.get(DOMAINS, [])), 'Domaines associés absents ou incorrects.')
+        allowed = rights.get(DOMAINS, [])
+        # Apple profiles may permit all associated domains. The executable
+        # itself must still carry the exact domains requested by the app.
+        wildcard_profile = provisioning and (allowed == '*' or allowed == ['*'])
+        require(wildcard_profile or set(domains) <= set(allowed), 'Domaines associés absents ou incorrects.')
 
 
 def check_source(root):
@@ -87,7 +91,7 @@ def check_bundles(read, names):
         profile_data = subprocess.run(['openssl', 'cms', '-verify', '-inform', 'DER', '-noverify'],
                                       input=read(bundle + '/embedded.mobileprovision'), capture_output=True, check=True).stdout
         profile = plistlib.loads(profile_data)['Entitlements']
-        check_rights(profile, group, domains)
+        check_rights(profile, group, domains, provisioning=True)
         require(all(e.get('application-identifier') == profile.get('application-identifier') for e in rights),
                 'L’identité signée diffère du profil Apple.')
         results.append({'bundle_id': info['CFBundleIdentifier'], 'version': info['CFBundleShortVersionString'],
