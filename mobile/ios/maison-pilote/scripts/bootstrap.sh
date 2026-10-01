@@ -40,7 +40,9 @@ fi
 
 (
     cd -- "$PROJECT_DIR"
+    python3 "$SCRIPT_DIR/validate-entitlements.py" --source "$PROJECT_DIR"
     xcodegen generate --spec project.yml
+    python3 "$SCRIPT_DIR/validate-entitlements.py" --source "$PROJECT_DIR"
     xcodebuild -project MaisonPiloteIOS.xcodeproj -list
 )
 

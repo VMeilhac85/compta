@@ -9,19 +9,23 @@ extension Notification.Name {
     )
 }
 
-struct PendingNativePush {
-    let id: UUID
-    let detail: [String: String]
-    let openedByUser: Bool
-}
-
 @MainActor
 final class MobilePushCoordinator {
     static let shared = MobilePushCoordinator()
 
     private let tokenStore = ApnsTokenStore.shared
     private(set) var currentToken: String?
-    private var pendingPushes: [PendingNativePush] = []
+    var displayedContextKeys: Set<String> = []
+    var displayedContextKey: String?
+    var contentVisible = false
+    private(set) var authorization = "unknown"
+    private(set) var registration = "idle"
+    private(set) var lastError: [String: String]?
+
+    var publicState: [String: Any] {
+        ["authorization": authorization, "registration": registration,
+         "error": lastError.map { $0 as Any } ?? NSNull(), "can_open_settings": true]
+    }
 
     private init() {
         currentToken = tokenStore.load()
@@ -35,43 +39,67 @@ final class MobilePushCoordinator {
 #endif
     }
 
-    var pendingPush: PendingNativePush? {
-        pendingPushes.first
-    }
-
     func requestAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(
             options: [.alert, .badge, .sound]
         ) { granted, error in
             Task { @MainActor in
-                if granted {
-                    UIApplication.shared.registerForRemoteNotifications()
-                } else if error != nil {
-                    NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
+                if error != nil {
+                    self.lastError = ["code": "authorization_failed",
+                                      "message": "L’autorisation des notifications n’a pas pu être vérifiée."]
                 }
+                self.registerIfAuthorized()
             }
         }
     }
 
     func registerIfAuthorized() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
-            guard settings.authorizationStatus == .authorized
-                    || settings.authorizationStatus == .provisional
-                    || settings.authorizationStatus == .ephemeral else { return }
             Task { @MainActor in
-                UIApplication.shared.registerForRemoteNotifications()
+                switch settings.authorizationStatus {
+                case .notDetermined: self.authorization = "not_determined"
+                case .denied: self.authorization = "denied"
+                case .authorized: self.authorization = "authorized"
+                case .provisional: self.authorization = "provisional"
+                case .ephemeral: self.authorization = "ephemeral"
+                @unknown default: self.authorization = "unknown"
+                }
+                if ["authorized", "provisional", "ephemeral"].contains(self.authorization) {
+                    self.registration = "registering"
+                    self.lastError = nil
+                    UIApplication.shared.registerForRemoteNotifications()
+                } else {
+                    self.registration = "idle"
+                    if self.authorization == "denied" { self.lastError = nil }
+                }
+                self.publishState()
             }
         }
     }
 
     func didRegister(deviceToken: Data) {
         let token = deviceToken.map { String(format: "%02x", $0) }.joined()
-        guard ApnsTokenStore.isValid(token), tokenStore.store(token) else { return }
+        guard ApnsTokenStore.isValid(token), tokenStore.store(token) else {
+            registration = "failed"
+            lastError = ["code": "token_storage_failed",
+                         "message": "L’inscription aux notifications n’a pas pu être conservée sur cet iPhone."]
+            publishState()
+            return
+        }
         currentToken = token
-        NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
+        registration = "registered"
+        lastError = nil
+        publishState()
     }
 
     func didFailRegistration() {
+        registration = "failed"
+        lastError = ["code": "registration_failed",
+                     "message": "L’iPhone n’a pas pu s’inscrire aux notifications. Réessayez avec une connexion disponible."]
+        publishState()
+    }
+
+    private func publishState() {
         NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
     }
 
@@ -84,32 +112,10 @@ final class MobilePushCoordinator {
         } else {
             normalized.removeValue(forKey: "deep_link")
         }
-        let pending = PendingNativePush(
-            id: UUID(),
-            detail: normalized,
-            openedByUser: openedByUser
-        )
-        if let notificationID = normalized["notification_id"],
-           let existingIndex = pendingPushes.firstIndex(where: {
-               $0.detail["notification_id"] == notificationID
-           }) {
-            if openedByUser && !pendingPushes[existingIndex].openedByUser {
-                pendingPushes[existingIndex] = pending
-            }
-        } else {
-            pendingPushes.append(pending)
-            if pendingPushes.count > 20 {
-                pendingPushes.removeFirst(pendingPushes.count - 20)
-            }
-        }
+        NativeNavigationInbox.shared.enqueuePush(detail: normalized, openedByUser: openedByUser)
         NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
     }
 
-    func acknowledge(pushID: UUID) {
-        guard let index = pendingPushes.firstIndex(where: { $0.id == pushID }) else { return }
-        pendingPushes.remove(at: index)
-        NotificationCenter.default.post(name: .maisonPilotePushStateChanged, object: nil)
-    }
 }
 
 final class MaisonPiloteAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -162,7 +168,10 @@ final class MaisonPiloteAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
         let payload = Self.safePayload(from: notification.request.content.userInfo)
         Task { @MainActor in
             MobilePushCoordinator.shared.receive(payload: payload, openedByUser: false)
-            completionHandler([.banner, .list, .sound, .badge])
+            let coordinator = MobilePushCoordinator.shared
+            let key = payload["context_key"] ?? ""
+            let alreadyDisplayed = coordinator.contentVisible && !key.isEmpty && (coordinator.displayedContextKey == key || coordinator.displayedContextKeys.contains(key))
+            completionHandler(alreadyDisplayed ? [] : [.banner, .list, .sound, .badge])
         }
     }
 
@@ -181,7 +190,7 @@ final class MaisonPiloteAppDelegate: NSObject, UIApplicationDelegate, UNUserNoti
     private static func safePayload(from userInfo: [AnyHashable: Any]) -> [String: String] {
         let nested = userInfo["maison_pilote"] as? [String: Any]
         var payload: [String: String] = [:]
-        for key in ["notification_id", "dossier_id", "type", "action_type", "deep_link"] {
+        for key in ["notification_id", "notification_ref", "context_key", "schema_version", "category", "dossier_id", "type", "action_type", "deep_link"] {
             let value = nested?[key] ?? userInfo[key]
             if let string = value as? String, !string.isEmpty {
                 payload[key] = String(string.prefix(2_048))
