@@ -11,6 +11,9 @@ struct ShareInboxPublicBatch: Encodable {
     let id: String
     let createdAtUTC: String
     let files: [ShareInboxPublicFile]
+    let intakeResult: ShareInboxIntakeResult?
+    let confirmedContext: ShareInboxContext?
+    let purpose: String?
 }
 
 struct ShareInboxChunk {
@@ -90,8 +93,14 @@ final class ShareInbox {
         .sorted { $0.createdAtUTC > $1.createdAtUTC }
     }
 
-    func publicBatches() -> [ShareInboxPublicBatch] {
-        batches().map { batch in
+    func publicBatches(ownerID: String? = nil) -> [ShareInboxPublicBatch] {
+        batches().filter {
+            $0.purpose != "image_conversion"
+                && ($0.confirmedContext == nil || $0.confirmedContext?.ownerID == ownerID)
+        }.map(Self.publicBatch)
+    }
+
+    static func publicBatch(_ batch: ShareInboxBatch) -> ShareInboxPublicBatch {
             ShareInboxPublicBatch(
                 id: batch.id,
                 createdAtUTC: batch.createdAtUTC,
@@ -102,9 +111,30 @@ final class ShareInbox {
                         mimeType: file.mimeType,
                         size: file.size
                     )
-                }
+                },
+                intakeResult: batch.intakeResult,
+                confirmedContext: batch.confirmedContext,
+                purpose: batch.purpose
             )
+    }
+
+    func canAccess(batchID: String, ownerID: String, requireContext: Bool = true) -> Bool {
+        guard let root = inboxRoot(create: false), let batch = try? loadBatch(batchID: batchID, root: root) else { return false }
+        guard let context = batch.confirmedContext else { return !requireContext }
+        return context.ownerID == ownerID
+    }
+
+    func bindContext(batchID: String, context: ShareInboxContext) throws -> ShareInboxPublicBatch {
+        guard let root = inboxRoot(create: false) else { throw ShareInboxReadError.inboxUnavailable }
+        var batch = try loadBatch(batchID: batchID, root: root)
+        guard batch.confirmedContext == nil || batch.confirmedContext == context else {
+            throw ShareInboxReadError.authenticationRequired
         }
+        batch.confirmedContext = context
+        let target = try validatedBatchDirectory(batchID: batchID, root: root).appendingPathComponent("payload.json")
+        try JSONEncoder().encode(batch).write(to: target, options: [.atomic, .completeFileProtection])
+        try SharedInboxStorage.protect(target)
+        return Self.publicBatch(batch)
     }
 
     func readChunk(
