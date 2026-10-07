@@ -42,8 +42,8 @@ private struct MaisonPiloteRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
+            // SwiftUI owns the container and keyboard safe areas once.
             MaisonPiloteWebView(store: store)
-                .ignoresSafeArea(.container, edges: .bottom)
 
             if store.isLoading {
                 ProgressView()
@@ -68,6 +68,15 @@ private struct MaisonPiloteRootView: View {
             }
         }
         .background(Color(uiColor: .systemBackground))
+        .onAppear {
+            store.updateContentVisibility(!privacyShieldVisible)
+        }
+        .onChange(of: privacyShieldVisible) { hidden in
+            store.updateContentVisibility(!hidden)
+        }
+        .onDisappear {
+            store.updateContentVisibility(false)
+        }
         .task {
             store.startIfNeeded()
         }
@@ -80,8 +89,7 @@ private struct PrivacyShield: View {
             Color(uiColor: .systemBackground)
                 .ignoresSafeArea()
             VStack(spacing: 10) {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 32, weight: .medium))
+                Image(uiImage: MobileIcon.security.image(size: 32))
                     .accessibilityHidden(true)
                 Text("Maison Pilote")
                     .font(.headline)
@@ -102,7 +110,7 @@ private struct ConnectionNotice: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "wifi.exclamationmark")
+            Image(uiImage: MobileIcon.offline.image())
                 .accessibilityHidden(true)
             Text(message)
                 .font(.footnote)
@@ -111,7 +119,7 @@ private struct ConnectionNotice: View {
             Button("Réessayer", action: onRetry)
                 .font(.footnote.weight(.semibold))
             Button(action: onClose) {
-                Image(systemName: "xmark")
+                Image(uiImage: MobileIcon.close.image())
                     .accessibilityLabel("Fermer")
             }
         }
